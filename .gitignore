@@ -1,0 +1,7 @@
+diff_sim_core/build
+forgeNN/
+sim/
+diff_sim_core/forgeNN_cpp.cpython-313-x86_64-linux-gnu.so
+diff_sim_core/forgeNN_cpp.cpython-311-x86_64-linux-gnu.so
+diff_sim_core/extern
+legacy/
