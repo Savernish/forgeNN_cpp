@@ -1,6 +1,11 @@
-#include "core.h"
+#include "engine/tensor.h"
 #include <iostream>
 #include <unordered_set>
+
+Tensor::Tensor() {
+    data.resize(0, 0);
+    set_requires_grad(false);
+}
 
 Tensor::Tensor(int rows, int cols, bool req_grad) {
     data.resize(rows, cols);
@@ -373,7 +378,7 @@ Tensor Tensor::stack(const std::vector<Tensor*>& tensors) {
 
 // ---------------- Operators ----------------
 
-Tensor Tensor::operator+(const Tensor& other) {
+Tensor Tensor::operator+(const Tensor& other) const {
     Tensor result(data.rows(), data.cols(), false);
     result.data = this->data + other.data;
 
@@ -397,7 +402,7 @@ Tensor Tensor::operator+(const Tensor& other) {
     return result;
 }
 
-Tensor Tensor::operator-(const Tensor& other) {
+Tensor Tensor::operator-(const Tensor& other) const {
     Tensor result(data.rows(), data.cols(), false);
     result.data = this->data - other.data;
 
@@ -421,9 +426,22 @@ Tensor Tensor::operator-(const Tensor& other) {
     return result;
 }
 
-Tensor Tensor::operator*(const Tensor& other) {
+Tensor Tensor::operator*(const Tensor& other) const {
+    bool scalar_broadcast = (other.rows() == 1 && other.cols() == 1);
+    
     Tensor result(data.rows(), data.cols(), false);
-    result.data = (this->data.array() * other.data.array()).matrix();
+    
+    if (scalar_broadcast) {
+        result.data = this->data * other.data(0, 0);
+    } else {
+        // Enforce dimensions
+        if (data.rows() != other.rows() || data.cols() != other.cols()) {
+            throw std::runtime_error("Dimension mismatch in operator* " + 
+                std::to_string(data.rows()) + "x" + std::to_string(data.cols()) + " vs " +
+                std::to_string(other.rows()) + "x" + std::to_string(other.cols()));
+        }
+        result.data = (this->data.array() * other.data.array()).matrix();
+    }
 
     if (this->requires_grad || other.requires_grad) {
         result.set_requires_grad(true);
@@ -433,21 +451,44 @@ Tensor Tensor::operator*(const Tensor& other) {
         result.children.push_back(const_cast<Tensor*>(this));
         result.children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other](Tensor& self) {
+        result.backward_fn = [this, &other, scalar_broadcast](Tensor& self) {
             if (this->requires_grad) {
-                const_cast<Tensor*>(this)->grad.array() += self.grad.array() * other.data.array();
+                if (scalar_broadcast) {
+                     const_cast<Tensor*>(this)->grad.array() += self.grad.array() * other.data(0,0);
+                } else {
+                     const_cast<Tensor*>(this)->grad.array() += self.grad.array() * other.data.array();
+                }
             }
             if (other.requires_grad) {
-                const_cast<Tensor*>(&other)->grad.array() += self.grad.array() * this->data.array();
+                if (scalar_broadcast) {
+                    // dL/d(scalar) = sum(dL/d(result) * this)
+                    // gradient w.r.t scalar is dot product of output_grad and input
+                    float grad_scalar = (self.grad.array() * this->data.array()).sum();
+                    const_cast<Tensor*>(&other)->grad(0,0) += grad_scalar;
+                } else {
+                     const_cast<Tensor*>(&other)->grad.array() += self.grad.array() * this->data.array();
+                }
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::operator/(const Tensor& other) {
+Tensor Tensor::operator/(const Tensor& other) const {
+    bool scalar_broadcast = (other.rows() == 1 && other.cols() == 1);
+
     Tensor result(data.rows(), data.cols(), false);
-    result.data = (this->data.array() / other.data.array()).matrix();
+    
+    if (scalar_broadcast) {
+        result.data = this->data / other.data(0, 0);
+    } else {
+         if (data.rows() != other.rows() || data.cols() != other.cols()) {
+            throw std::runtime_error("Dimension mismatch in operator/ " + 
+                std::to_string(data.rows()) + "x" + std::to_string(data.cols()) + " vs " +
+                std::to_string(other.rows()) + "x" + std::to_string(other.cols()));
+        }
+        result.data = (this->data.array() / other.data.array()).matrix();
+    }
 
     if (this->requires_grad || other.requires_grad) {
         result.set_requires_grad(true);
@@ -457,19 +498,33 @@ Tensor Tensor::operator/(const Tensor& other) {
         result.children.push_back(const_cast<Tensor*>(this));
         result.children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other](Tensor& self) {
+        result.backward_fn = [this, &other, scalar_broadcast](Tensor& self) {
             if (this->requires_grad) {
-                const_cast<Tensor*>(this)->grad.array() += self.grad.array() / other.data.array();
+                if (scalar_broadcast) {
+                    const_cast<Tensor*>(this)->grad.array() += self.grad.array() / other.data(0,0);
+                } else {
+                    const_cast<Tensor*>(this)->grad.array() += self.grad.array() / other.data.array();
+                }
             }
             if (other.requires_grad) {
-                const_cast<Tensor*>(&other)->grad.array() -= self.grad.array() * this->data.array() / (other.data.array().square());
+                if (scalar_broadcast) {
+                     // dL/d(scalar) = - sum(dL/d(res) * this / (scalar^2))
+                     // scalar val s. res = vals / s.
+                     // d(v/s)/ds = -v/s^2.
+                     float s = other.data(0,0);
+                     float grad_scalar = (self.grad.array() * this->data.array() * (-1.0f / (s*s))).sum();
+                     const_cast<Tensor*>(&other)->grad(0,0) += grad_scalar;
+                } else {
+                    // dL/d(other) = - dL/d(res) * this / (other^2)
+                    const_cast<Tensor*>(&other)->grad.array() -= self.grad.array() * this->data.array() / (other.data.array().square());
+                }
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::operator*(float scalar) {
+Tensor Tensor::operator*(float scalar) const {
     Tensor result(data.rows(), data.cols(), false);
     result.data = this->data * scalar;
 

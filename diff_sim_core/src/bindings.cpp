@@ -2,9 +2,12 @@
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 #include <iostream>
-#include "core.h"
-#include "activations.h"
-#include "optimizers.h"
+#include "engine/tensor.h"
+#include "engine/activations.h"
+#include "engine/optimizers.h"
+#include "engine/body.h"
+#include "renderer/sdl_renderer.h"
+#include "engine/engine.h"
 
 namespace py = pybind11;
 
@@ -52,9 +55,9 @@ PYBIND11_MODULE(forgeNN_cpp, m) {
         // Keep 'this' (1) and 'other' (2) alive as long as 'result' (0) is alive
         .def("__add__", &Tensor::operator+, py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
         .def("__sub__", &Tensor::operator-, py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
-        .def("__mul__", (Tensor (Tensor::*)(const Tensor&)) &Tensor::operator*, py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
-        .def("__mul__", (Tensor (Tensor::*)(float)) &Tensor::operator*, py::keep_alive<0, 1>())
-        .def("__rmul__", (Tensor (Tensor::*)(float)) &Tensor::operator*, py::keep_alive<0, 1>())
+        .def("__mul__", (Tensor (Tensor::*)(const Tensor&) const) &Tensor::operator*, py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
+        .def("__mul__", (Tensor (Tensor::*)(float) const) &Tensor::operator*, py::keep_alive<0, 1>())
+        .def("__rmul__", (Tensor (Tensor::*)(float) const) &Tensor::operator*, py::keep_alive<0, 1>())
         .def("__truediv__", &Tensor::operator/, py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
 
 
@@ -103,4 +106,48 @@ PYBIND11_MODULE(forgeNN_cpp, m) {
              py::arg("params"), py::arg("lr")=0.001, py::arg("beta1")=0.9, py::arg("beta2")=0.999, py::arg("epsilon")=1e-8, py::arg("weight_decay")=0.0)
         .def("step", &AdamW::step)
         .def("zero_grad", &AdamW::zero_grad);
+
+    py::class_<Body>(m, "Body")
+        .def(py::init<float, float, float, float, float>(), 
+             py::arg("x"), py::arg("y"), py::arg("mass"), py::arg("width"), py::arg("height"))
+        .def("step", py::overload_cast<const Tensor&, const Tensor&, float>(&Body::step), py::arg("forces"), py::arg("torque"), py::arg("dt"))
+        .def("step", py::overload_cast<float>(&Body::step), py::arg("dt"))
+        .def("apply_force", &Body::apply_force)
+        .def("apply_force_at_point", &Body::apply_force_at_point, py::arg("force"), py::arg("point"))
+        .def("apply_torque", &Body::apply_torque)
+        .def("reset_forces", &Body::reset_forces)
+        .def_property_readonly("pos", [](Body& b) { return b.pos; })
+        .def_property_readonly("vel", [](Body& b) { return b.vel; })
+        .def_property_readonly("rotation", [](Body& b) { return b.rotation; })
+        .def("get_x", &Body::get_x)
+        .def("get_y", &Body::get_y)
+        .def("get_rotation", &Body::get_rotation);
+
+    py::class_<Renderer>(m, "Renderer")
+        .def("get_width", &Renderer::get_width, "Get the window width in pixels.")
+        .def("get_height", &Renderer::get_height, "Get the window height in pixels.")
+        .def("get_scale", &Renderer::get_scale, "Get the pixels-per-meter scale factor.")
+        .def("clear", &Renderer::clear, "Clear the screen with the background color.")
+        .def("present", &Renderer::present, "Swap buffers and present the rendered frame.")
+        .def("process_events", &Renderer::process_events, "Handle window events (close, resize). Returns False if quit.")
+        .def("draw_box", &Renderer::draw_box, py::arg("x"), py::arg("y"), py::arg("w"), py::arg("h"), py::arg("rotation"),
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a rectangle defined by center (x,y), width, height, and rotation.")
+        .def("draw_line", &Renderer::draw_line, py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), 
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a line between (x1,y1) and (x2,y2) with color (r,g,b).");
+
+    py::class_<SDLRenderer, Renderer>(m, "SDLRenderer")
+        .def(py::init<int, int, float>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f);
+
+    py::class_<Engine>(m, "Engine")
+        .def(py::init<int, int, float, float, int>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f, py::arg("dt")=0.016f, py::arg("substeps")=10)
+        .def("add_body", &Engine::add_body)
+        .def("set_gravity", &Engine::set_gravity)
+        .def("step", &Engine::step, "Run one simulation step. Returns False if Quit event received.")
+        .def("update", &Engine::update, "Run one physics step (forces, collision, integration).")
+        .def("render_bodies", &Engine::render_bodies, "Render all bodies to the current renderer context.")
+        .def("add_ground_segment", &Engine::add_ground_segment, py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), py::arg("friction")=0.5f)
+        .def("clear_geometry", &Engine::clear_geometry)
+        .def("get_renderer", &Engine::get_renderer, py::return_value_policy::reference);
 }

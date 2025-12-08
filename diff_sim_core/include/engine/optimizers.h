@@ -2,7 +2,7 @@
 #define OPTIMIZERS_H
 
 #include <vector>
-#include "core.h"
+#include "engine/tensor.h"
 
 class Optimizer {
 public:

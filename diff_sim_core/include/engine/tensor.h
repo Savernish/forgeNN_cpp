@@ -14,6 +14,7 @@ class Tensor {
     friend Tensor tanh(const Tensor& input);
 public:
     // Constructor for arbitrary 2D shape (rows, cols)
+    Tensor(); // Default constructor
     Tensor(int rows, int cols, bool requires_grad = false);
 
     // Constructor for 1D column vector (size x 1)
@@ -79,11 +80,11 @@ public:
     Tensor reshape(int r, int c);
 
     // Operations
-    Tensor operator+(const Tensor& other);
-    Tensor operator-(const Tensor& other);
-    Tensor operator*(const Tensor& other);
-    Tensor operator*(float scalar);
-    Tensor operator/(const Tensor& other);
+    Tensor operator+(const Tensor& other) const;
+    Tensor operator-(const Tensor& other) const;
+    Tensor operator*(const Tensor& other) const;
+    Tensor operator*(float scalar) const;
+    Tensor operator/(const Tensor& other) const;
 
     //Mathematical functions
 

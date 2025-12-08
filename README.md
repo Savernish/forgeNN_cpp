@@ -35,12 +35,15 @@ Benchmark comparison running a 6-DOF Drone Simulation (200 epochs of optimizatio
 
 ### Build
 
-Run the automated build script to compile the shared library:
+### Build
+Run `compile.bat` on Windows or:
 
 ```bash
-cd diff_sim_core
-./build.sh
+pip install -e .
 ```
+
+This compiles the C++ core and installs the `forgeNN_cpp` Python module in development mode.
+You can verify the build with `python examples/test_engine_loop.py`.
 
 This compiles the C++ core and generates the `forgeNN_cpp` Python module in the current directory.
 
@@ -83,7 +86,15 @@ Classic non-linear control problem solved via gradient descent through time.
 ### 3. Projectile Optimization
 Basic trajectory plotting and targeting.
 
-Run them via:
+### 3. Projectile Optimization
+Basic trajectory plotting and targeting.
+
+### 4. Engine Loop Demo
+Demonstrates the new C++ Engine Loop class with automatic physics and rendering.
+
+```bash
+python examples/test_engine_loop.py
+```
 
 ```bash
 python examples/drone.py

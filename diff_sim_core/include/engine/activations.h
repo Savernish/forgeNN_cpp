@@ -1,7 +1,7 @@
 #ifndef ACTIVATIONS_H
 #define ACTIVATIONS_H
 
-#include "core.h"
+#include "engine/tensor.h"
 
 // Activation Functions
 Tensor relu(const Tensor& input);
