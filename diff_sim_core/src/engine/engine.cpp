@@ -67,11 +67,14 @@ void Engine::apply_gravity(Body* b, float sub_dt) {
 void Engine::integrate(Body* b, float sub_dt) {
     if (b->is_static) return;
     
-    // Angular velocity damping to prevent rotation drift (1% per substep)
-    float omega = b->ang_vel.get(0, 0);
-    float damped_omega = omega * 0.99f;
-    if (std::abs(damped_omega) < 0.01f) damped_omega = 0;  // Zero out small values
-    b->ang_vel = Tensor(std::vector<float>{damped_omega}, true);
+    // Angular velocity damping - only for bodies WITHOUT motors
+    // Bodies with motors should naturally stabilize via thrust control
+    if (b->motors.empty()) {
+        float omega = b->ang_vel.get(0, 0);
+        float damped_omega = omega * 0.99f;
+        if (std::abs(damped_omega) < 0.01f) damped_omega = 0;
+        b->ang_vel = Tensor(std::vector<float>{damped_omega}, true);
+    }
     
     b->step(sub_dt);
 }
@@ -978,6 +981,11 @@ void Engine::update() {
     float sub_dt = dt / static_cast<float>(substeps);
     
     for (int step = 0; step < substeps; ++step) {
+        // 0. Apply motor forces
+        for (Body* b : bodies) {
+            b->apply_motor_forces();
+        }
+        
         // 1. Apply gravity
         for (Body* b : bodies) {
             apply_gravity(b, sub_dt);

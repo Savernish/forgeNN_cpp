@@ -2,9 +2,11 @@
 #define BODY_H
 
 #include "engine/tensor.h"
+#include "engine/motor.h"
 #include <vector>
 #include <list>
 #include <string>
+#include <stdexcept>
 
 // Simple shape definition for now
 struct Shape {
@@ -43,6 +45,9 @@ public:
     std::vector<Shape> shapes;
     std::string name;
     
+    // Motors attached to this body
+    std::vector<Motor*> motors;
+    
     // Physics properties
     bool is_static;     // Static bodies don't move (infinite mass for collision)
     float friction;     // Friction coefficient [0, 1]
@@ -52,6 +57,30 @@ public:
     
     // Static body factory (for ground/walls)
     static Body* create_static(float x, float y, float width, float height, float rotation = 0.0f);
+    
+    // Motor management
+    void add_motor(Motor* m) {
+        // Check for overlap with existing motors
+        for (Motor* existing : motors) {
+            if (existing->overlaps(*m)) {
+                throw std::runtime_error("Motor overlap detected! Cannot attach motor - it collides with an existing motor.");
+            }
+        }
+        m->parent = this;
+        motors.push_back(m);
+        
+        // Update mass (motor mass adds to body mass)
+        float new_mass = mass.get(0, 0) + m->mass;
+        mass = Tensor(std::vector<float>{new_mass}, true);
+        
+        // Update inertia (I = I + m*r^2 for point mass at distance r)
+        float r_sq = m->local_x * m->local_x + m->local_y * m->local_y;
+        float new_inertia = inertia.get(0, 0) + m->mass * r_sq;
+        inertia = Tensor(std::vector<float>{new_inertia}, true);
+    }
+    
+    // Apply all motor forces
+    void apply_motor_forces();
     
     // Physics integration step
     // Old method (Manual):
@@ -83,3 +112,4 @@ public:
 };
 
 #endif // BODY_H
+

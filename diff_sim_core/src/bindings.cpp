@@ -128,7 +128,24 @@ PYBIND11_MODULE(rigidRL, m) {
         }, py::arg("angle"))
         .def_readwrite("is_static", &Body::is_static)
         .def_readwrite("friction", &Body::friction)
-        .def_readwrite("restitution", &Body::restitution);
+        .def_readwrite("restitution", &Body::restitution)
+        .def("add_motor", &Body::add_motor, py::arg("motor"), py::keep_alive<1, 2>())
+        .def_property_readonly("motors", [](Body& b) { return b.motors; }, py::return_value_policy::reference_internal);
+
+    py::class_<Motor>(m, "Motor")
+        .def(py::init<>())
+        .def(py::init<float, float>(), py::arg("local_x"), py::arg("local_y"))
+        .def(py::init<float, float, float, float, float, float>(), 
+             py::arg("local_x"), py::arg("local_y"), py::arg("width"), py::arg("height"), py::arg("mass"), py::arg("max_thrust"))
+        .def_readwrite("local_x", &Motor::local_x)
+        .def_readwrite("local_y", &Motor::local_y)
+        .def_readwrite("width", &Motor::width)
+        .def_readwrite("height", &Motor::height)
+        .def_readwrite("mass", &Motor::mass)
+        .def_readwrite("thrust", &Motor::thrust)
+        .def_readwrite("max_thrust", &Motor::max_thrust)
+        .def_readwrite("angle", &Motor::angle)
+        .def("set_thrust", &Motor::set_thrust, py::arg("thrust"));
 
     py::class_<Renderer>(m, "Renderer")
         .def("get_width", &Renderer::get_width, "Get the window width in pixels.")

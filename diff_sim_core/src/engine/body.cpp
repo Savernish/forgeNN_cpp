@@ -235,3 +235,33 @@ Tensor& Body::keep(const Tensor& t) {
     garbage_collector.push_back(t);
     return garbage_collector.back();
 }
+void Body::apply_motor_forces() {
+    float body_rot = rotation.get(0, 0);
+    float cos_r = std::cos(body_rot);
+    float sin_r = std::sin(body_rot);
+    
+    for (Motor* m : motors) {
+        if (m->thrust <= 0) continue;
+        
+        // Motor thrust direction in local space (default: up = +y)
+        float local_fx = std::cos(m->angle) * m->thrust;
+        float local_fy = std::sin(m->angle) * m->thrust;
+        
+        // Transform force to world space
+        float world_fx = cos_r * local_fx - sin_r * local_fy;
+        float world_fy = sin_r * local_fx + cos_r * local_fy;
+        
+        // Apply linear force
+        std::vector<float> force_vec = {world_fx, world_fy};
+        Tensor force(force_vec, false);
+        apply_force(force);
+        
+        // Calculate torque: tau = r x F (cross product in 2D)
+        float rx = cos_r * m->local_x - sin_r * m->local_y;
+        float ry = sin_r * m->local_x + cos_r * m->local_y;
+        
+        float torque = rx * world_fy - ry * world_fx;
+        std::vector<float> torque_vec = {torque};
+        apply_torque(Tensor(torque_vec, false));
+    }
+}
