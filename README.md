@@ -1,4 +1,4 @@
-# forgeNN++
+# rigidRL
 
 **High-Performance C++ Autograd Engine for Differentiable Physics**
 
