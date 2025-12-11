@@ -5,6 +5,7 @@ Box falls on left side of drone, causing rotation and crash
 import sys
 import os
 import math
+import time
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 core_dir = os.path.join(os.path.dirname(script_dir), 'diff_sim_core')
@@ -18,6 +19,7 @@ def run():
     engine = rigid.Engine(800, 600, 40, 0.016, 30)
     engine.set_gravity(0, -9.81)
     running = True
+    renderer = engine.get_renderer()
     
     # Ground
     engine.add_collider(0, -1, 20, 1, 0)
@@ -29,6 +31,7 @@ def run():
     drone.add_motor(motor_left)
     drone.add_motor(motor_right)
     engine.add_body(drone)
+
     
     drone_mass = 1.0 + 0.2
     hover_thrust = (drone_mass * 9.81) / 2
@@ -48,9 +51,18 @@ def run():
         motor_left.thrust = thrust
         motor_right.thrust = thrust
         
-        if not engine.step():
+        # Manual render loop for custom drawing, in the future there will be better integration.
+        if not renderer.process_events():
             running = False
             break
+        engine.update()  # Physics only
+        renderer.clear()
+        engine.render_bodies()
+        renderer.draw_circle(motor_left.local_x + drone.get_x(), motor_left.local_y + drone.get_y() - motor_left.height / 2, 0.4, 1.0, 1.0, 1.0)  # White circle around drone
+        renderer.draw_circle(motor_right.local_x + drone.get_x(), motor_right.local_y + drone.get_y() - motor_right.height / 2, 0.4, 1.0, 1.0, 1.0)  # White circle around drone
+        renderer.present()
+        # Since we are manually updating the renderer, we need to sleep to maintain frame rate.
+        time.sleep(0.016)
         frame += 1
     
     if not running:

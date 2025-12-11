@@ -20,9 +20,9 @@ def run():
     # Create boxes
     box1 = rigid.Body(0, 6, 4, 1.0, 1.0)
     box2 = rigid.Body(-2, 8, 1.5, 0.2, 0.8)
-    box3 = rigid.Body(5, 10, 4, 1.2, 1.2)
-    box4 = rigid.Body(6, 12, 0.5, 1.2, 1.2)
-    box5 = rigid.Body(5, 15, 0.1, 0.6, 1.2)
+    box3 = rigid.Body(0, 8, 4, 1.2, 1.2)
+    box4 = rigid.Body(3, 8, 0.5, 1.2, 1.2)
+    box5 = rigid.Body(5, 8, 0.1, 0.6, 1.2)
     engine.add_body(box1)
     engine.add_body(box2)
     engine.add_body(box3)

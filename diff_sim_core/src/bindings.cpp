@@ -159,7 +159,9 @@ PYBIND11_MODULE(rigidRL, m) {
              "Draw a rectangle defined by center (x,y), width, height, and rotation.")
         .def("draw_line", &Renderer::draw_line, py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), 
              py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
-             "Draw a line between (x1,y1) and (x2,y2) with color (r,g,b).");
+             "Draw a line between (x1,y1) and (x2,y2) with color (r,g,b).")
+        .def("draw_circle", &Renderer::draw_circle, py::arg("centerX"), py::arg("centerY"), py::arg("radius"), py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a circle defined by center (x,y), radius, and color (r,g,b).");
 
     py::class_<SDLRenderer, Renderer>(m, "SDLRenderer")
         .def(py::init<int, int, float>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f);

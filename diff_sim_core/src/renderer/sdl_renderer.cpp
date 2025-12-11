@@ -91,8 +91,48 @@ void SDLRenderer::draw_line(float x1, float y1, float x2, float y2, float r, flo
     SDL_RenderDrawLine(renderer, to_screen_x(x1), to_screen_y(y1), to_screen_x(x2), to_screen_y(y2));
 }
 
-// void SDLRenderer::draw_circle(float x, float y, float radius, float r, float g, float b) {
-//     SDL_SetRenderDrawColor(renderer, (Uint8)(r*255), (Uint8)(g*255), (Uint8)(b*255), 255);
-//     SDL_RenderDrawCircle(renderer, to_screen_x(x), to_screen_y(y), radius);
-// }
+void SDLRenderer::draw_circle(float centreX, float centreY, float radius, float r, float g, float b) {
+    // Convert world center to screen coordinates
+    int screenCenterX = to_screen_x(centreX);
+    int screenCenterY = to_screen_y(centreY);
+    int screenRadius = static_cast<int>(radius * scale);
+    
+    const int32_t diameter = (screenRadius * 2);
+
+    int32_t x = (screenRadius - 1);
+    int32_t y = 0;
+    int32_t tx = 1;
+    int32_t ty = 1;
+    int32_t error = (tx - diameter);
+
+    SDL_SetRenderDrawColor(renderer, (Uint8)(r*255), (Uint8)(g*255), (Uint8)(b*255), 255);
+
+    while (x >= y)
+    {
+        //  Each of the following renders an octant of the circle
+        SDL_RenderDrawPoint(renderer, screenCenterX + x, screenCenterY - y);
+        SDL_RenderDrawPoint(renderer, screenCenterX + x, screenCenterY + y);
+        SDL_RenderDrawPoint(renderer, screenCenterX - x, screenCenterY - y);
+        SDL_RenderDrawPoint(renderer, screenCenterX - x, screenCenterY + y);
+        SDL_RenderDrawPoint(renderer, screenCenterX + y, screenCenterY - x);
+        SDL_RenderDrawPoint(renderer, screenCenterX + y, screenCenterY + x);
+        SDL_RenderDrawPoint(renderer, screenCenterX - y, screenCenterY - x);
+        SDL_RenderDrawPoint(renderer, screenCenterX - y, screenCenterY + x);
+
+        if (error <= 0)
+        {
+            ++y;
+            error += ty;
+            ty += 2;
+        }
+
+        if (error > 0)
+        {
+            --x;
+            tx += 2;
+            error += (tx - diameter);
+        }
+    }
+}
+
 

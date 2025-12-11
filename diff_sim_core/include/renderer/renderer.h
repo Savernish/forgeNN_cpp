@@ -23,13 +23,10 @@ public:
 
     virtual void draw_line(float x1, float y1, float x2, float y2, float r=1.0f, float g=1.0f, float b=1.0f) = 0;
 
-    
-    
-    // virtual void draw_circle(float x, float y, float radius, float r=1.0f, float g=1.0f, float b=1.0f) = 0;
+    virtual void draw_circle(float centreX, float centreY, float radius, float r=1.0f, float g=1.0f, float b=1.0f) = 0;
 
-    // Lets not do that for now
-    // virtual void draw_polygon(float x, float y, float radius, int num_sides, float rotation, float r=1.0f, float g=1.0f, float b=1.0f) = 0;
-
+    //virtual void draw_triangle(float x1, float y1, float x2, float y2, float x3, float y3, float r=1.0f, float g=1.0f, float b=1.0f) = 0;
+    
 protected:
     float scale;
     int width, height;
