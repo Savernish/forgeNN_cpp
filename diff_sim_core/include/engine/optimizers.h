@@ -8,50 +8,50 @@ class Optimizer {
 public:
     Optimizer(std::vector<Tensor*> params, float lr);
     virtual ~Optimizer();
-    virtual void step() = 0;
-    virtual void zero_grad();
+    virtual void Step() = 0;
+    virtual void ZeroGrad();
 
 protected:
-    std::vector<Tensor*> parameters;
-    float learning_rate;
+    std::vector<Tensor*> m_Parameters;
+    float m_LearningRate;
 };
 
 
 class SGD : public Optimizer {
 public:
     SGD(std::vector<Tensor*> params, float lr);
-    virtual void step() override;
+    virtual void Step() override;
 };
 
 
 class Adam : public Optimizer {
 public:
     Adam(std::vector<Tensor*> params, float lr = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8);
-    virtual void step() override;
+    virtual void Step() override;
 
 private:
-    float beta1;
-    float beta2;
-    float epsilon;
-    int t;
-    std::vector<Eigen::MatrixXf> m; // First moment
-    std::vector<Eigen::MatrixXf> v; // Second moment
+    float m_Beta1;
+    float m_Beta2;
+    float m_Epsilon;
+    int m_T;
+    std::vector<Eigen::MatrixXf> m_M; // First moment
+    std::vector<Eigen::MatrixXf> m_V; // Second moment
 };
 
 
 class AdamW : public Optimizer {
 public:
-    AdamW(std::vector<Tensor*> params, float lr = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8, float weight_decay = 0.0);
-    virtual void step() override;
+    AdamW(std::vector<Tensor*> params, float lr = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8, float weightDecay = 0.0);
+    virtual void Step() override;
 
 private:
-    float beta1;
-    float beta2;
-    float epsilon;
-    int t;
-    std::vector<Eigen::MatrixXf> m; // First moment
-    std::vector<Eigen::MatrixXf> v; // Second moment
-    float weight_decay;
+    float m_Beta1;
+    float m_Beta2;
+    float m_Epsilon;
+    int m_T;
+    std::vector<Eigen::MatrixXf> m_M; // First moment
+    std::vector<Eigen::MatrixXf> m_V; // Second moment
+    float m_WeightDecay;
 };
 
 

@@ -12,72 +12,73 @@ class Tensor {
     friend class AdamW;
     friend Tensor relu(const Tensor& input);
     friend Tensor tanh(const Tensor& input);
+    
 public:
     // Constructor for arbitrary 2D shape (rows, cols)
     Tensor(); // Default constructor
-    Tensor(int rows, int cols, bool requires_grad = false);
+    Tensor(int rows, int cols, bool requiresGrad = false);
 
     // Constructor for 1D column vector (size x 1)
-    Tensor(int size, bool requires_grad = false);
+    Tensor(int size, bool requiresGrad = false);
 
     // Constructor from 1D list (creates size x 1 column vector)
-    Tensor(std::vector<float> data_list, bool requires_grad = false);
+    Tensor(std::vector<float> dataList, bool requiresGrad = false);
     
     // Set value at specific row/col
-    void set(int r, int c, float value);
+    void Set(int r, int c, float value);
 
     // Get value
-    float get(int r, int c) const;
+    float Get(int r, int c) const;
 
     // Backward function
-    void backward();
+    void Backward();
 
     // Set requires_grad
-    void set_requires_grad(bool requires_grad);
+    void SetRequiresGrad(bool requiresGrad);
 
     // Zero gradient
-    void zero_grad();
+    void ZeroGrad();
 
     // Dimensions
-    int rows() const;
-    int cols() const;
+    int Rows() const;
+    int Cols() const;
 
     // Accessors for Python bindings (Copy-based for now)
-    Eigen::MatrixXf get_data() const;
-    void set_data(const Eigen::MatrixXf& d);
+    Eigen::MatrixXf GetData() const;
+    void SetData(const Eigen::MatrixXf& d);
     
-    Eigen::MatrixXf get_grad() const;
-    void set_grad(const Eigen::MatrixXf& g);
+    Eigen::MatrixXf GetGrad() const;
+    void SetGrad(const Eigen::MatrixXf& g);
 
-    bool get_requires_grad() const;
+    bool GetRequiresGrad() const;
 
     // Pointer to underlying data (useful for binding to NumPy later)
-    float* data_ptr();
+    float* DataPtr();
 
-    Tensor sum();
-    Tensor sum(int axis); // Axis reduction
-    Tensor mean();
-    Tensor mean(int axis); // Axis reduction
-    Tensor max();
-    Tensor min();
+    Tensor Sum();
+    Tensor Sum(int axis); // Axis reduction
+    Tensor Mean();
+    Tensor Mean(int axis); // Axis reduction
+    Tensor Max();
+    Tensor Min();
     
     // Element-wise Math
-    Tensor exp();
-    Tensor log();
-    Tensor sqrt();
-    Tensor abs();
-    Tensor clamp(float min_val, float max_val);
+    Tensor Exp();
+    Tensor Log();
+    Tensor Sqrt();
+    Tensor Abs();
+    Tensor Clamp(float minVal, float maxVal);
 
     // Trigonometry
-    Tensor sin();
-    Tensor cos();
-    Tensor pow(float exponent);
+    Tensor Sin();
+    Tensor Cos();
+    Tensor Pow(float exponent);
 
     // Core Ops
-    Tensor select(int idx) const; // Differentiable indexing
-    static Tensor stack(const std::vector<Tensor*>& tensors); // Differentiable stacking
-    static Tensor cat(const std::vector<Tensor*>& tensors, int dim); // Differentiable concatenation
-    Tensor reshape(int r, int c);
+    Tensor Select(int idx) const; // Differentiable indexing
+    static Tensor Stack(const std::vector<Tensor*>& tensors); // Differentiable stacking
+    static Tensor Cat(const std::vector<Tensor*>& tensors, int dim); // Differentiable concatenation
+    Tensor Reshape(int r, int c);
 
     // Operations
     Tensor operator+(const Tensor& other) const;
@@ -86,21 +87,20 @@ public:
     Tensor operator*(float scalar) const;
     Tensor operator/(const Tensor& other) const;
 
-    //Mathematical functions
-
-    Tensor transpose();
-    Tensor matmul(const Tensor& other);
+    // Mathematical functions
+    Tensor Transpose();
+    Tensor Matmul(const Tensor& other);
     
     // Gaussian log probability for policy gradients
-    static Tensor gaussian_log_prob(const Tensor& action, const Tensor& mean, const Tensor& log_std);
+    static Tensor GaussianLogProb(const Tensor& action, const Tensor& mean, const Tensor& logStd);
 
 private:
-   // The backend: Dynamic size, Float type
-    Eigen::MatrixXf data;
-    Eigen::MatrixXf grad;
-    bool requires_grad = false; // Default to false
-    std::vector<Tensor*> children;
-    std::function<void(Tensor&)> backward_fn;
+    // The backend: Dynamic size, Float type
+    Eigen::MatrixXf m_Data;
+    Eigen::MatrixXf m_Grad;
+    bool m_bRequiresGrad = false;
+    std::vector<Tensor*> m_Children;
+    std::function<void(Tensor&)> m_BackwardFn;
 };
 
 #endif // CORE_H

@@ -56,12 +56,21 @@ class CMakeBuild(build_ext):
 
 setup(
     name='rigidRL',
-    version='0.2.0',
+    version='0.3.0',
     author='Savern',
-    description='High-Performance Differentiable Rigid Body Physics for RL',
-    # Tell setuptools that packages are found in diff_sim_core
-    package_dir={'': 'diff_sim_core'},
+    description='High-Performance Rigid Body Physics Engine for RL',
+    # rigidrl_py is in the project root
+    packages=['rigidrl_py', 'rigidrl_py.envs'],
+    package_data={'rigidrl_py': ['*.pyd', '*.so']},
     ext_modules=[CMakeExtension('rigidRL', sourcedir='diff_sim_core')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
+    install_requires=[
+        'numpy',
+        'gymnasium>=0.29.0',
+    ],
+    extras_require={
+        'rl': ['stable-baselines3>=2.0.0'],
+    },
+    python_requires='>=3.8',
 )

@@ -3,67 +3,67 @@
 #include <unordered_set>
 
 Tensor::Tensor() {
-    data.resize(0, 0);
-    set_requires_grad(false);
+    m_Data.resize(0, 0);
+    SetRequiresGrad(false);
 }
 
-Tensor::Tensor(int rows, int cols, bool req_grad) {
-    data.resize(rows, cols);
-    data.setZero();
-    set_requires_grad(req_grad);
+Tensor::Tensor(int rows, int cols, bool requiresGrad) {
+    m_Data.resize(rows, cols);
+    m_Data.setZero();
+    SetRequiresGrad(requiresGrad);
 }
 
-Tensor::Tensor(int size, bool req_grad) {
-    data.resize(size, 1);
-    data.setZero();
-    set_requires_grad(req_grad);
+Tensor::Tensor(int size, bool requiresGrad) {
+    m_Data.resize(size, 1);
+    m_Data.setZero();
+    SetRequiresGrad(requiresGrad);
 }
 
-Tensor::Tensor(std::vector<float> data_list, bool req_grad) {
-    data.resize(data_list.size(), 1);
-    for (size_t i = 0; i < data_list.size(); ++i) {
-        data(i, 0) = data_list[i];
+Tensor::Tensor(std::vector<float> dataList, bool requiresGrad) {
+    m_Data.resize(dataList.size(), 1);
+    for (size_t i = 0; i < dataList.size(); ++i) {
+        m_Data(i, 0) = dataList[i];
     }
-    set_requires_grad(req_grad);
+    SetRequiresGrad(requiresGrad);
 }
 
-void Tensor::set(int r, int c, float value) {
-    if (r >= 0 && r < data.rows() && c >= 0 && c < data.cols()) {
-        data(r, c) = value;
+void Tensor::Set(int r, int c, float value) {
+    if (r >= 0 && r < m_Data.rows() && c >= 0 && c < m_Data.cols()) {
+        m_Data(r, c) = value;
     }
 }
 
-float Tensor::get(int r, int c) const {
-    if (r >= 0 && r < data.rows() && c >= 0 && c < data.cols()) {
-        return data(r, c);
+float Tensor::Get(int r, int c) const {
+    if (r >= 0 && r < m_Data.rows() && c >= 0 && c < m_Data.cols()) {
+        return m_Data(r, c);
     }
     return 0.0f;
 }
 
-void Tensor::set_requires_grad(bool req) {
-    this->requires_grad = req;
-    if (req && grad.size() == 0) {
-        grad.resizeLike(data);
-        grad.setZero();
+void Tensor::SetRequiresGrad(bool requiresGrad) {
+    this->m_bRequiresGrad = requiresGrad;
+    if (requiresGrad && m_Grad.size() == 0) {
+        m_Grad.resizeLike(m_Data);
+        m_Grad.setZero();
     }
 }
 
-void Tensor::zero_grad() {
-    if (grad.size() > 0) {
-        grad.setZero();
+void Tensor::ZeroGrad() {
+    if (m_Grad.size() > 0) {
+        m_Grad.setZero();
     }
 }
 
-void Tensor::backward() {
-    if (!requires_grad) {
-        std::cerr << "Warning: called backward() on a Tensor that does not require grad." << std::endl;
+void Tensor::Backward() {
+    if (!m_bRequiresGrad) {
+        std::cerr << "Warning: called Backward() on a Tensor that does not require grad." << std::endl;
         return;
     }
 
-    if (grad.size() == 0) {
-        grad.resizeLike(data);
+    if (m_Grad.size() == 0) {
+        m_Grad.resizeLike(m_Data);
     }
-    grad.setOnes();
+    m_Grad.setOnes();
 
     // Iterative Topological Sort to avoid Stack Overflow
     std::vector<Tensor*> topo;
@@ -74,22 +74,22 @@ void Tensor::backward() {
     stack.push_back(this);
     
     while (!stack.empty()) {
-        Tensor* node = stack.back();
+        Tensor* pNode = stack.back();
         
-        if (visited.count(node)) {
+        if (visited.count(pNode)) {
             stack.pop_back();
             continue;
         }
         
-        if (expanded.count(node)) {
-            visited.insert(node);
-            topo.push_back(node);
+        if (expanded.count(pNode)) {
+            visited.insert(pNode);
+            topo.push_back(pNode);
             stack.pop_back();
         } else {
-            expanded.insert(node);
-            for (Tensor* child : node->children) {
-                if (visited.find(child) == visited.end()) {
-                    stack.push_back(child);
+            expanded.insert(pNode);
+            for (Tensor* pChild : pNode->m_Children) {
+                if (visited.find(pChild) == visited.end()) {
+                    stack.push_back(pChild);
                 }
             }
         }
@@ -99,61 +99,54 @@ void Tensor::backward() {
     // Backward Pass
     int count = 0;
     for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
-        Tensor* node = *it;
-        if (node->backward_fn) {
-             // count++;
-            node->backward_fn(*node);
+        Tensor* pNode = *it;
+        if (pNode->m_BackwardFn) {
+            pNode->m_BackwardFn(*pNode);
         }
     }
-} // Backward Pass
+}
 
-
-int Tensor::rows() const { return data.rows(); }
-int Tensor::cols() const { return data.cols(); }
-float* Tensor::data_ptr() { return data.data(); }
+int Tensor::Rows() const { return m_Data.rows(); }
+int Tensor::Cols() const { return m_Data.cols(); }
+float* Tensor::DataPtr() { return m_Data.data(); }
 
 // Reductions
 
-// Sum (Scalar) - Already exists
-Tensor Tensor::sum() {
-    Tensor result(1, 1, false); // Scalar result
-    result.data(0, 0) = this->data.sum();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+// Sum (Scalar)
+Tensor Tensor::Sum() {
+    Tensor result(1, 1, false);
+    result.m_Data(0, 0) = this->m_Data.sum();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(this);
+        result.m_Children.push_back(this);
         
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // Gradient of sum is 1 for all elements
-                float grad_val = self.grad(0, 0); 
-                this->grad.array() += grad_val;
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                float gradVal = self.m_Grad(0, 0); 
+                this->m_Grad.array() += gradVal;
             }
         };
     }
     return result;
 }
 
-// Mean (Scalar) - Already exists
-
-
 // Min (Scalar)
-Tensor Tensor::min() {
+Tensor Tensor::Min() {
     Tensor result(1, 1, false);
     Eigen::Index r, c;
-    float val = this->data.minCoeff(&r, &c);
-    result.data(0,0) = val;
+    float val = this->m_Data.minCoeff(&r, &c);
+    result.m_Data(0,0) = val;
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        // Only the min element gets gradient 1
-        result.backward_fn = [this, r, c](Tensor& self) {
-             if (this->requires_grad) {
-                 this->grad(r, c) += self.grad(0,0);
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this, r, c](Tensor& self) {
+             if (this->m_bRequiresGrad) {
+                 this->m_Grad(r, c) += self.m_Grad(0,0);
              }
         };
     }
@@ -161,19 +154,19 @@ Tensor Tensor::min() {
 }
 
 // Max (Scalar)
-Tensor Tensor::max() {
+Tensor Tensor::Max() {
     Tensor result(1, 1, false);
     Eigen::Index r, c;
-    float val = this->data.maxCoeff(&r, &c);
-    result.data(0,0) = val;
+    float val = this->m_Data.maxCoeff(&r, &c);
+    result.m_Data(0,0) = val;
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this, r, c](Tensor& self) {
-             if (this->requires_grad) {
-                 this->grad(r, c) += self.grad(0,0);
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this, r, c](Tensor& self) {
+             if (this->m_bRequiresGrad) {
+                 this->m_Grad(r, c) += self.m_Grad(0,0);
              }
         };
     }
@@ -181,31 +174,28 @@ Tensor Tensor::max() {
 }
 
 // Sum (Axis)
-Tensor Tensor::sum(int axis) {
+Tensor Tensor::Sum(int axis) {
     if (axis != 0 && axis != 1) throw std::runtime_error("Axis must be 0 or 1");
 
     Tensor result(0,0);
     if (axis == 0) {
-        result = Tensor(1, data.cols(), false);
-        result.data = data.colwise().sum();
+        result = Tensor(1, m_Data.cols(), false);
+        result.m_Data = m_Data.colwise().sum();
     } else {
-        result = Tensor(data.rows(), 1, false);
-        result.data = data.rowwise().sum();
+        result = Tensor(m_Data.rows(), 1, false);
+        result.m_Data = m_Data.rowwise().sum();
     }
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this, axis](Tensor& self) {
-            if (this->requires_grad) {
-                // Broadcast gradient back using replicate
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this, axis](Tensor& self) {
+            if (this->m_bRequiresGrad) {
                 if (axis == 0) {
-                    // self.grad is (1, cols). Replicate to (rows, cols)
-                    this->grad.array() += self.grad.array().row(0).replicate(this->rows(), 1);
+                    this->m_Grad.array() += self.m_Grad.array().row(0).replicate(this->Rows(), 1);
                 } else {
-                    // self.grad is (rows, 1). Replicate to (rows, cols)
-                    this->grad.array() += self.grad.array().col(0).replicate(1, this->cols());
+                    this->m_Grad.array() += self.m_Grad.array().col(0).replicate(1, this->Cols());
                 }
             }
         };
@@ -214,28 +204,28 @@ Tensor Tensor::sum(int axis) {
 }
 
 // Mean (Axis)
-Tensor Tensor::mean(int axis) {
-     if (axis != 0 && axis != 1) throw std::runtime_error("Axis must be 0 or 1");
+Tensor Tensor::Mean(int axis) {
+    if (axis != 0 && axis != 1) throw std::runtime_error("Axis must be 0 or 1");
     Tensor result(0,0);
     if (axis == 0) {
-        result = Tensor(1, data.cols(), false);
-        result.data = data.colwise().mean();
+        result = Tensor(1, m_Data.cols(), false);
+        result.m_Data = m_Data.colwise().mean();
     } else {
-        result = Tensor(data.rows(), 1, false);
-        result.data = data.rowwise().mean();
+        result = Tensor(m_Data.rows(), 1, false);
+        result.m_Data = m_Data.rowwise().mean();
     }
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this, axis](Tensor& self) {
-            if (this->requires_grad) {
-                float n = (axis == 0) ? (float)this->rows() : (float)this->cols();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this, axis](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                float n = (axis == 0) ? (float)this->Rows() : (float)this->Cols();
                 if (axis == 0) {
-                     this->grad.array() += (self.grad.array().row(0) / n).replicate(this->rows(), 1);
+                     this->m_Grad.array() += (self.m_Grad.array().row(0) / n).replicate(this->Rows(), 1);
                 } else {
-                     this->grad.array() += (self.grad.array().col(0) / n).replicate(1, this->cols());
+                     this->m_Grad.array() += (self.m_Grad.array().col(0) / n).replicate(1, this->Cols());
                 }
             }
         };
@@ -243,129 +233,122 @@ Tensor Tensor::mean(int axis) {
     return result;
 }
 
+Tensor Tensor::Sin() {
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
+    result.m_Data = m_Data.array().sin().matrix();
 
-
-Tensor Tensor::sin() {
-    Tensor result(data.rows(), data.cols(), false);
-    result.data = data.array().sin().matrix();
-
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(this);
+        result.m_Children.push_back(this);
 
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dL/dx += dL/dy * cos(x)
-                this->grad.array() += self.grad.array() * this->data.array().cos();
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += self.m_Grad.array() * this->m_Data.array().cos();
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::cos() {
-    Tensor result(data.rows(), data.cols(), false);
-    result.data = data.array().cos().matrix();
+Tensor Tensor::Cos() {
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
+    result.m_Data = m_Data.array().cos().matrix();
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(this);
+        result.m_Children.push_back(this);
 
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dL/dx += dL/dy * -sin(x)
-                this->grad.array() -= self.grad.array() * this->data.array().sin();
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() -= self.m_Grad.array() * this->m_Data.array().sin();
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::mean() {
+Tensor Tensor::Mean() {
     Tensor result(1, 1, false);
-    result.data(0, 0) = this->data.mean();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    result.m_Data(0, 0) = this->m_Data.mean();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(this);
+        result.m_Children.push_back(this);
         
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                this->grad.array() += self.grad.array() / this->data.rows();
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += self.m_Grad.array() / this->m_Data.rows();
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::select(int idx) const {
+Tensor Tensor::Select(int idx) const {
     Tensor result(1, 1, false);
-    // Boundary check? For performance we skip, but for safety:
-    if (idx < 0 || idx >= data.size()) {
-        std::cerr << "Error: Index " << idx << " out of bounds for Tensor size " << data.size() << std::endl;
+    if (idx < 0 || idx >= m_Data.size()) {
+        std::cerr << "Error: Index " << idx << " out of bounds for Tensor size " << m_Data.size() << std::endl;
         return result; 
     }
-    result.data(0,0) = this->data(idx);
+    result.m_Data(0,0) = this->m_Data(idx);
     
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(const_cast<Tensor*>(this));
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(const_cast<Tensor*>(this));
         
-        // Capture 'idx' and 'this'
-        Tensor* self_ptr = const_cast<Tensor*>(this);
-        result.backward_fn = [self_ptr, idx](Tensor& self) {
-            if (self_ptr->requires_grad) {
-                // Accumulate gradient into the specific index
-                self_ptr->grad(idx) += self.grad(0,0);
+        Tensor* pSelf = const_cast<Tensor*>(this);
+        result.m_BackwardFn = [pSelf, idx](Tensor& self) {
+            if (pSelf->m_bRequiresGrad) {
+                pSelf->m_Grad(idx) += self.m_Grad(0,0);
             }
         };
     }
     return result;
 }
 
-Tensor Tensor::stack(const std::vector<Tensor*>& tensors) {
+Tensor Tensor::Stack(const std::vector<Tensor*>& tensors) {
     int n = tensors.size();
     if (n == 0) return Tensor(0, 1);
     
     Tensor result(n, 1, false); 
-    bool any_grad = false;
-    for(auto* t : tensors) {
-        if(t->get_requires_grad()) any_grad = true;
+    bool bAnyGrad = false;
+    for(auto* pTensor : tensors) {
+        if(pTensor->GetRequiresGrad()) bAnyGrad = true;
     }
     
-    if (any_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
+    if (bAnyGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
         
         for(int i=0; i<n; ++i) {
-            result.data(i, 0) = tensors[i]->data(0,0); // Assume scalars
-            if(tensors[i]->get_requires_grad()) {
-                result.children.push_back(tensors[i]);
+            result.m_Data(i, 0) = tensors[i]->m_Data(0,0);
+            if(tensors[i]->GetRequiresGrad()) {
+                result.m_Children.push_back(tensors[i]);
             }
         }
         
-        std::vector<Tensor*> inputs = tensors; // Copy vector of pointers
+        std::vector<Tensor*> inputs = tensors;
         
-        result.backward_fn = [inputs](Tensor& self) {
+        result.m_BackwardFn = [inputs](Tensor& self) {
             for(size_t i=0; i<inputs.size(); ++i) {
-                Tensor* inp = inputs[i];
-                if(inp->get_requires_grad()) {
-                    inp->grad(0,0) += self.grad(i,0);
+                Tensor* pInput = inputs[i];
+                if(pInput->GetRequiresGrad()) {
+                    pInput->m_Grad(0,0) += self.m_Grad(i,0);
                 }
             }
         };
     } else {
          for(int i=0; i<n; ++i) {
-            result.data(i, 0) = tensors[i]->data(0,0);
+            result.m_Data(i, 0) = tensors[i]->m_Data(0,0);
         }
     }
     return result;
@@ -375,23 +358,23 @@ Tensor Tensor::stack(const std::vector<Tensor*>& tensors) {
 // ---------------- Operators ----------------
 
 Tensor Tensor::operator+(const Tensor& other) const {
-    Tensor result(data.rows(), data.cols(), false);
-    result.data = this->data + other.data;
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
+    result.m_Data = this->m_Data + other.m_Data;
 
-    if (this->requires_grad || other.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad || other.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(const_cast<Tensor*>(this));
-        result.children.push_back(const_cast<Tensor*>(&other));
+        result.m_Children.push_back(const_cast<Tensor*>(this));
+        result.m_Children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other](Tensor& self) {
-            if (this->requires_grad) {
-                const_cast<Tensor*>(this)->grad += self.grad;
+        result.m_BackwardFn = [this, &other](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                const_cast<Tensor*>(this)->m_Grad += self.m_Grad;
             }
-            if (other.requires_grad) {
-                const_cast<Tensor*>(&other)->grad += self.grad;
+            if (other.m_bRequiresGrad) {
+                const_cast<Tensor*>(&other)->m_Grad += self.m_Grad;
             }
         };
     }
@@ -399,23 +382,23 @@ Tensor Tensor::operator+(const Tensor& other) const {
 }
 
 Tensor Tensor::operator-(const Tensor& other) const {
-    Tensor result(data.rows(), data.cols(), false);
-    result.data = this->data - other.data;
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
+    result.m_Data = this->m_Data - other.m_Data;
 
-    if (this->requires_grad || other.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad || other.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(const_cast<Tensor*>(this));
-        result.children.push_back(const_cast<Tensor*>(&other));
+        result.m_Children.push_back(const_cast<Tensor*>(this));
+        result.m_Children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other](Tensor& self) {
-            if (this->requires_grad) {
-                const_cast<Tensor*>(this)->grad += self.grad;
+        result.m_BackwardFn = [this, &other](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                const_cast<Tensor*>(this)->m_Grad += self.m_Grad;
             }
-            if (other.requires_grad) {
-                const_cast<Tensor*>(&other)->grad -= self.grad;
+            if (other.m_bRequiresGrad) {
+                const_cast<Tensor*>(&other)->m_Grad -= self.m_Grad;
             }
         };
     }
@@ -423,46 +406,43 @@ Tensor Tensor::operator-(const Tensor& other) const {
 }
 
 Tensor Tensor::operator*(const Tensor& other) const {
-    bool scalar_broadcast = (other.rows() == 1 && other.cols() == 1);
+    bool bScalarBroadcast = (other.Rows() == 1 && other.Cols() == 1);
     
-    Tensor result(data.rows(), data.cols(), false);
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
     
-    if (scalar_broadcast) {
-        result.data = this->data * other.data(0, 0);
+    if (bScalarBroadcast) {
+        result.m_Data = this->m_Data * other.m_Data(0, 0);
     } else {
-        // Enforce dimensions
-        if (data.rows() != other.rows() || data.cols() != other.cols()) {
+        if (m_Data.rows() != other.Rows() || m_Data.cols() != other.Cols()) {
             throw std::runtime_error("Dimension mismatch in operator* " + 
-                std::to_string(data.rows()) + "x" + std::to_string(data.cols()) + " vs " +
-                std::to_string(other.rows()) + "x" + std::to_string(other.cols()));
+                std::to_string(m_Data.rows()) + "x" + std::to_string(m_Data.cols()) + " vs " +
+                std::to_string(other.Rows()) + "x" + std::to_string(other.Cols()));
         }
-        result.data = (this->data.array() * other.data.array()).matrix();
+        result.m_Data = (this->m_Data.array() * other.m_Data.array()).matrix();
     }
 
-    if (this->requires_grad || other.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad || other.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
 
-        result.children.push_back(const_cast<Tensor*>(this));
-        result.children.push_back(const_cast<Tensor*>(&other));
+        result.m_Children.push_back(const_cast<Tensor*>(this));
+        result.m_Children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other, scalar_broadcast](Tensor& self) {
-            if (this->requires_grad) {
-                if (scalar_broadcast) {
-                     const_cast<Tensor*>(this)->grad.array() += self.grad.array() * other.data(0,0);
+        result.m_BackwardFn = [this, &other, bScalarBroadcast](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                if (bScalarBroadcast) {
+                     const_cast<Tensor*>(this)->m_Grad.array() += self.m_Grad.array() * other.m_Data(0,0);
                 } else {
-                     const_cast<Tensor*>(this)->grad.array() += self.grad.array() * other.data.array();
+                     const_cast<Tensor*>(this)->m_Grad.array() += self.m_Grad.array() * other.m_Data.array();
                 }
             }
-            if (other.requires_grad) {
-                if (scalar_broadcast) {
-                    // dL/d(scalar) = sum(dL/d(result) * this)
-                    // gradient w.r.t scalar is dot product of output_grad and input
-                    float grad_scalar = (self.grad.array() * this->data.array()).sum();
-                    const_cast<Tensor*>(&other)->grad(0,0) += grad_scalar;
+            if (other.m_bRequiresGrad) {
+                if (bScalarBroadcast) {
+                    float gradScalar = (self.m_Grad.array() * this->m_Data.array()).sum();
+                    const_cast<Tensor*>(&other)->m_Grad(0,0) += gradScalar;
                 } else {
-                     const_cast<Tensor*>(&other)->grad.array() += self.grad.array() * this->data.array();
+                     const_cast<Tensor*>(&other)->m_Grad.array() += self.m_Grad.array() * this->m_Data.array();
                 }
             }
         };
@@ -471,48 +451,44 @@ Tensor Tensor::operator*(const Tensor& other) const {
 }
 
 Tensor Tensor::operator/(const Tensor& other) const {
-    bool scalar_broadcast = (other.rows() == 1 && other.cols() == 1);
+    bool bScalarBroadcast = (other.Rows() == 1 && other.Cols() == 1);
 
-    Tensor result(data.rows(), data.cols(), false);
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
     
-    if (scalar_broadcast) {
-        result.data = this->data / other.data(0, 0);
+    if (bScalarBroadcast) {
+        result.m_Data = this->m_Data / other.m_Data(0, 0);
     } else {
-         if (data.rows() != other.rows() || data.cols() != other.cols()) {
+         if (m_Data.rows() != other.Rows() || m_Data.cols() != other.Cols()) {
             throw std::runtime_error("Dimension mismatch in operator/ " + 
-                std::to_string(data.rows()) + "x" + std::to_string(data.cols()) + " vs " +
-                std::to_string(other.rows()) + "x" + std::to_string(other.cols()));
+                std::to_string(m_Data.rows()) + "x" + std::to_string(m_Data.cols()) + " vs " +
+                std::to_string(other.Rows()) + "x" + std::to_string(other.Cols()));
         }
-        result.data = (this->data.array() / other.data.array()).matrix();
+        result.m_Data = (this->m_Data.array() / other.m_Data.array()).matrix();
     }
 
-    if (this->requires_grad || other.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad || other.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
 
-        result.children.push_back(const_cast<Tensor*>(this));
-        result.children.push_back(const_cast<Tensor*>(&other));
+        result.m_Children.push_back(const_cast<Tensor*>(this));
+        result.m_Children.push_back(const_cast<Tensor*>(&other));
 
-        result.backward_fn = [this, &other, scalar_broadcast](Tensor& self) {
-            if (this->requires_grad) {
-                if (scalar_broadcast) {
-                    const_cast<Tensor*>(this)->grad.array() += self.grad.array() / other.data(0,0);
+        result.m_BackwardFn = [this, &other, bScalarBroadcast](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                if (bScalarBroadcast) {
+                    const_cast<Tensor*>(this)->m_Grad.array() += self.m_Grad.array() / other.m_Data(0,0);
                 } else {
-                    const_cast<Tensor*>(this)->grad.array() += self.grad.array() / other.data.array();
+                    const_cast<Tensor*>(this)->m_Grad.array() += self.m_Grad.array() / other.m_Data.array();
                 }
             }
-            if (other.requires_grad) {
-                if (scalar_broadcast) {
-                     // dL/d(scalar) = - sum(dL/d(res) * this / (scalar^2))
-                     // scalar val s. res = vals / s.
-                     // d(v/s)/ds = -v/s^2.
-                     float s = other.data(0,0);
-                     float grad_scalar = (self.grad.array() * this->data.array() * (-1.0f / (s*s))).sum();
-                     const_cast<Tensor*>(&other)->grad(0,0) += grad_scalar;
+            if (other.m_bRequiresGrad) {
+                if (bScalarBroadcast) {
+                     float s = other.m_Data(0,0);
+                     float gradScalar = (self.m_Grad.array() * this->m_Data.array() * (-1.0f / (s*s))).sum();
+                     const_cast<Tensor*>(&other)->m_Grad(0,0) += gradScalar;
                 } else {
-                    // dL/d(other) = - dL/d(res) * this / (other^2)
-                    const_cast<Tensor*>(&other)->grad.array() -= self.grad.array() * this->data.array() / (other.data.array().square());
+                    const_cast<Tensor*>(&other)->m_Grad.array() -= self.m_Grad.array() * this->m_Data.array() / (other.m_Data.array().square());
                 }
             }
         };
@@ -521,20 +497,19 @@ Tensor Tensor::operator/(const Tensor& other) const {
 }
 
 Tensor Tensor::operator*(float scalar) const {
-    Tensor result(data.rows(), data.cols(), false);
-    result.data = this->data * scalar;
+    Tensor result(m_Data.rows(), m_Data.cols(), false);
+    result.m_Data = this->m_Data * scalar;
 
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.resizeLike(result.data);
-        result.grad.setZero();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.resizeLike(result.m_Data);
+        result.m_Grad.setZero();
         
-        result.children.push_back(const_cast<Tensor*>(this));
+        result.m_Children.push_back(const_cast<Tensor*>(this));
 
-        result.backward_fn = [this, scalar](Tensor& self) {
-            if (this->requires_grad) {
-                // dL/dx += dL/dz * scalar
-                const_cast<Tensor*>(this)->grad.array() += self.grad.array() * scalar;
+        result.m_BackwardFn = [this, scalar](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                const_cast<Tensor*>(this)->m_Grad.array() += self.m_Grad.array() * scalar;
             }
         };
     }
@@ -543,18 +518,17 @@ Tensor Tensor::operator*(float scalar) const {
 
 // Mathematical Functions
 
-
 // Transpose
-Tensor Tensor::transpose() {
-    Tensor result(this->data.cols(), this->data.rows(), false); // Swapped dims
-    result.data = this->data.transpose();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                this->grad += self.grad.transpose();
+Tensor Tensor::Transpose() {
+    Tensor result(this->m_Data.cols(), this->m_Data.rows(), false);
+    result.m_Data = this->m_Data.transpose();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad += self.m_Grad.transpose();
             }
         };
     }
@@ -562,19 +536,18 @@ Tensor Tensor::transpose() {
 }
 
 // Power
-Tensor Tensor::pow(float exponent) {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    result.data = this->data.array().pow(exponent);
+Tensor Tensor::Pow(float exponent) {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.array().pow(exponent);
     
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
         
-        result.backward_fn = [this, exponent](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = p * x^(p-1) * grad_out
-                this->grad.array() += exponent * this->data.array().pow(exponent - 1.0f) * self.grad.array();
+        result.m_BackwardFn = [this, exponent](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += exponent * this->m_Data.array().pow(exponent - 1.0f) * self.m_Grad.array();
             }
         };
     }
@@ -582,17 +555,16 @@ Tensor Tensor::pow(float exponent) {
 }
 
 // Exp
-Tensor Tensor::exp() {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    result.data = this->data.array().exp();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = exp(x) * grad = y * grad
-                this->grad.array() += self.data.array() * self.grad.array(); 
+Tensor Tensor::Exp() {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.array().exp();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += self.m_Data.array() * self.m_Grad.array(); 
             }
         };
     }
@@ -600,18 +572,16 @@ Tensor Tensor::exp() {
 }
 
 // Log
-Tensor Tensor::log() {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    // Safety: we assume x > 0.
-    result.data = this->data.array().log();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = 1/x * grad
-                this->grad.array() += self.grad.array() / this->data.array();
+Tensor Tensor::Log() {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.array().log();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += self.m_Grad.array() / this->m_Data.array();
             }
         };
     }
@@ -619,17 +589,16 @@ Tensor Tensor::log() {
 }
 
 // Sqrt
-Tensor Tensor::sqrt() {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    result.data = this->data.array().sqrt();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = 1/(2*sqrt(x)) * grad = 1/(2y) * grad
-                this->grad.array() += 0.5f * self.grad.array() / self.data.array();
+Tensor Tensor::Sqrt() {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.array().sqrt();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += 0.5f * self.m_Grad.array() / self.m_Data.array();
             }
         };
     }
@@ -637,17 +606,16 @@ Tensor Tensor::sqrt() {
 }
 
 // Abs
-Tensor Tensor::abs() {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    result.data = this->data.array().abs();
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = sign(x) * grad
-                this->grad.array() += self.grad.array() * this->data.array().sign();
+Tensor Tensor::Abs() {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.array().abs();
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                this->m_Grad.array() += self.m_Grad.array() * this->m_Data.array().sign();
             }
         };
     }
@@ -655,21 +623,17 @@ Tensor Tensor::abs() {
 }
 
 // Clamp
-Tensor Tensor::clamp(float min_val, float max_val) {
-    Tensor result(this->data.rows(), this->data.cols(), false);
-    result.data = this->data.cwiseMax(min_val).cwiseMin(max_val);
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
-        result.backward_fn = [this, min_val, max_val](Tensor& self) {
-            if (this->requires_grad) {
-                // dy/dx = 1 if min < x < max else 0
-                // Use logic mask on 'this->data'
-                Eigen::ArrayXXf x = this->data.array();
-                // (x >= min && x <= max) -> 1
-                // Eigen doesn't verify range simply, so:
-                this->grad.array() += self.grad.array() * (x >= min_val && x <= max_val).cast<float>();
+Tensor Tensor::Clamp(float minVal, float maxVal) {
+    Tensor result(this->m_Data.rows(), this->m_Data.cols(), false);
+    result.m_Data = this->m_Data.cwiseMax(minVal).cwiseMin(maxVal);
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
+        result.m_BackwardFn = [this, minVal, maxVal](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                Eigen::ArrayXXf x = this->m_Data.array();
+                this->m_Grad.array() += self.m_Grad.array() * (x >= minVal && x <= maxVal).cast<float>();
             }
         };
     }
@@ -678,26 +642,25 @@ Tensor Tensor::clamp(float min_val, float max_val) {
 
 
 // Reshape
-Tensor Tensor::reshape(int r, int c) {
-    if (r * c != this->data.size()) {
-         std::cerr << "Error: Reshape size mismatch. Total " << this->data.size() << " requested " << r << "x" << c << std::endl;
+Tensor Tensor::Reshape(int r, int c) {
+    if (r * c != this->m_Data.size()) {
+         std::cerr << "Error: Reshape size mismatch. Total " << this->m_Data.size() << " requested " << r << "x" << c << std::endl;
          return Tensor(1,1);
     }
     
     Tensor result(r, c, false);
-    result.data = Eigen::Map<Eigen::MatrixXf>(this->data.data(), r, c); // Copy with reshape
+    result.m_Data = Eigen::Map<Eigen::MatrixXf>(this->m_Data.data(), r, c);
     
-    if (this->requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(this);
+    if (this->m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(this);
         
-        result.backward_fn = [this](Tensor& self) {
-            if (this->requires_grad) {
-                // Flatten and add gradients
-                Eigen::Map<Eigen::VectorXf> flat_grad(this->grad.data(), this->grad.size());
-                Eigen::Map<Eigen::VectorXf> flat_self(self.grad.data(), self.grad.size());
-                flat_grad += flat_self;
+        result.m_BackwardFn = [this](Tensor& self) {
+            if (this->m_bRequiresGrad) {
+                Eigen::Map<Eigen::VectorXf> flatGrad(this->m_Grad.data(), this->m_Grad.size());
+                Eigen::Map<Eigen::VectorXf> flatSelf(self.m_Grad.data(), self.m_Grad.size());
+                flatGrad += flatSelf;
             }
         };
     }
@@ -705,68 +668,65 @@ Tensor Tensor::reshape(int r, int c) {
 }
 
 // Concatenate
-Tensor Tensor::cat(const std::vector<Tensor*>& tensors, int dim) {
+Tensor Tensor::Cat(const std::vector<Tensor*>& tensors, int dim) {
     if (tensors.empty()) return Tensor(0, 0);
 
-    int rows = tensors[0]->data.rows();
-    int cols = tensors[0]->data.cols();
+    int rows = tensors[0]->m_Data.rows();
+    int cols = tensors[0]->m_Data.cols();
     
-    // Calculate total size and validate
-    int total_rows = 0;
-    int total_cols = 0;
+    int totalRows = 0;
+    int totalCols = 0;
     
     if (dim == 0) {
-        total_cols = cols;
-        for (const auto* t : tensors) {
-            if (t->data.cols() != cols) throw std::runtime_error("Dimension mismatch in cat(dim=0)");
-            total_rows += t->data.rows();
+        totalCols = cols;
+        for (const auto* pTensor : tensors) {
+            if (pTensor->m_Data.cols() != cols) throw std::runtime_error("Dimension mismatch in Cat(dim=0)");
+            totalRows += pTensor->m_Data.rows();
         }
     } else if (dim == 1) {
-        total_rows = rows;
-        for (const auto* t : tensors) {
-            if (t->data.rows() != rows) throw std::runtime_error("Dimension mismatch in cat(dim=1)");
-            total_cols += t->data.cols();
+        totalRows = rows;
+        for (const auto* pTensor : tensors) {
+            if (pTensor->m_Data.rows() != rows) throw std::runtime_error("Dimension mismatch in Cat(dim=1)");
+            totalCols += pTensor->m_Data.cols();
         }
     } else {
-        throw std::runtime_error("Invalid dimension for cat (only 0 or 1 supported)");
+        throw std::runtime_error("Invalid dimension for Cat (only 0 or 1 supported)");
     }
 
-    Tensor result(total_rows, total_cols, false);
+    Tensor result(totalRows, totalCols, false);
     
-    // Forward Copy
-    int current_offset = 0;
-    for (const auto* t : tensors) {
+    int currentOffset = 0;
+    for (const auto* pTensor : tensors) {
         if (dim == 0) {
-            result.data.block(current_offset, 0, t->data.rows(), cols) = t->data;
-            current_offset += t->data.rows();
+            result.m_Data.block(currentOffset, 0, pTensor->m_Data.rows(), cols) = pTensor->m_Data;
+            currentOffset += pTensor->m_Data.rows();
         } else {
-            result.data.block(0, current_offset, rows, t->data.cols()) = t->data;
-            current_offset += t->data.cols();
+            result.m_Data.block(0, currentOffset, rows, pTensor->m_Data.cols()) = pTensor->m_Data;
+            currentOffset += pTensor->m_Data.cols();
         }
         
-        if (t->get_requires_grad()) {
-            result.set_requires_grad(true);
-            result.children.push_back(const_cast<Tensor*>(t));
+        if (pTensor->GetRequiresGrad()) {
+            result.SetRequiresGrad(true);
+            result.m_Children.push_back(const_cast<Tensor*>(pTensor));
         }
     }
     
-    if (result.get_requires_grad()) {
-        result.grad.setZero();
+    if (result.GetRequiresGrad()) {
+        result.m_Grad.setZero();
         
-        // Capture inputs to know sizes for backward slicing
         std::vector<Tensor*> inputs = tensors;
         
-        result.backward_fn = [inputs, dim](Tensor& self) {
+        result.m_BackwardFn = [inputs, dim](Tensor& self) {
             int offset = 0;
-            for (Tensor* t : inputs) {
-                int r = t->data.rows();
-                int c = t->data.cols();
+            for (Tensor* pTensor : inputs) {
+                int r = pTensor->m_Data.rows();
+                int c = pTensor->m_Data.cols();
                 
-                if (t->get_requires_grad()) {
+                if (pTensor->GetRequiresGrad()) {
                     if (dim == 0) {
-                        t->grad += self.grad.block(offset, 0, r, c);
+                        pTensor->m_Grad += self.m_Grad.block(offset, 0, r, c);
                     } else {
-                        t->grad += self.grad.block(0, offset, r, c);
+                        pTensor->m_Grad += self.m_Grad.block(0, offset, r, c);
                     }
                 }
                 
@@ -781,25 +741,25 @@ Tensor Tensor::cat(const std::vector<Tensor*>& tensors, int dim) {
 
 
 // Matrix Multiplication
-Tensor Tensor::matmul(const Tensor& other) {
-    if (this->data.cols() != other.data.rows()) {
-        throw std::runtime_error("Shape mismatch for matmul");
+Tensor Tensor::Matmul(const Tensor& other) {
+    if (this->m_Data.cols() != other.m_Data.rows()) {
+        throw std::runtime_error("Shape mismatch for Matmul");
     }
-    Tensor result(this->data.rows(), other.data.cols(), false);
-    result.data = this->data * other.data;
-    if (this->requires_grad || other.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        if (this->requires_grad) result.children.push_back((Tensor*)this);
-        if (other.requires_grad) result.children.push_back((Tensor*)&other);
-        Tensor* A = (Tensor*)this;
-        Tensor* B = (Tensor*)&other;
-        result.backward_fn = [A, B](Tensor& self) {
-            if (A->get_requires_grad()) {
-                A->grad += self.grad * B->data.transpose();
+    Tensor result(this->m_Data.rows(), other.m_Data.cols(), false);
+    result.m_Data = this->m_Data * other.m_Data;
+    if (this->m_bRequiresGrad || other.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        if (this->m_bRequiresGrad) result.m_Children.push_back((Tensor*)this);
+        if (other.m_bRequiresGrad) result.m_Children.push_back((Tensor*)&other);
+        Tensor* pA = (Tensor*)this;
+        Tensor* pB = (Tensor*)&other;
+        result.m_BackwardFn = [pA, pB](Tensor& self) {
+            if (pA->GetRequiresGrad()) {
+                pA->m_Grad += self.m_Grad * pB->m_Data.transpose();
             }
-            if (B->get_requires_grad()) {
-                B->grad += A->data.transpose() * self.grad;
+            if (pB->GetRequiresGrad()) {
+                pB->m_Grad += pA->m_Data.transpose() * self.m_Grad;
             }
         };
     }
@@ -809,52 +769,48 @@ Tensor Tensor::matmul(const Tensor& other) {
 
 // Gaussian log probability for policy gradients
 // log π(a|μ,σ) = -0.5 × ((a - μ)/σ)² - log(σ) - 0.5×log(2π)
-Tensor Tensor::gaussian_log_prob(const Tensor& action, const Tensor& mean, const Tensor& log_std) {
-    const float LOG_2PI = 1.8378770664093453f; // log(2π)
+Tensor Tensor::GaussianLogProb(const Tensor& action, const Tensor& mean, const Tensor& logStd) {
+    const float LOG_2PI = 1.8378770664093453f;
     
-    // Forward pass: sum of log probs for each action dimension
     Tensor result(1, 1, false);
     float total = 0.0f;
-    int n = action.rows();
+    int n = action.Rows();
     
     for (int i = 0; i < n; i++) {
-        float a = action.data(i, 0);
-        float mu = mean.data(i, 0);
-        float log_s = log_std.data(i, 0);
-        float s = std::exp(log_s);
+        float a = action.m_Data(i, 0);
+        float mu = mean.m_Data(i, 0);
+        float logS = logStd.m_Data(i, 0);
+        float s = std::exp(logS);
         float diff = (a - mu) / s;
-        total += -0.5f * diff * diff - log_s - 0.5f * LOG_2PI;
+        total += -0.5f * diff * diff - logS - 0.5f * LOG_2PI;
     }
-    result.data(0, 0) = total;
+    result.m_Data(0, 0) = total;
     
-    if (mean.requires_grad || log_std.requires_grad) {
-        result.set_requires_grad(true);
-        result.grad.setZero();
-        result.children.push_back(const_cast<Tensor*>(&mean));
-        result.children.push_back(const_cast<Tensor*>(&log_std));
+    if (mean.m_bRequiresGrad || logStd.m_bRequiresGrad) {
+        result.SetRequiresGrad(true);
+        result.m_Grad.setZero();
+        result.m_Children.push_back(const_cast<Tensor*>(&mean));
+        result.m_Children.push_back(const_cast<Tensor*>(&logStd));
         
-        // Store pointers for backward
-        Tensor* a_ptr = const_cast<Tensor*>(&action);
-        Tensor* m_ptr = const_cast<Tensor*>(&mean);
-        Tensor* ls_ptr = const_cast<Tensor*>(&log_std);
-        int num_dims = n;
+        Tensor* pAction = const_cast<Tensor*>(&action);
+        Tensor* pMean = const_cast<Tensor*>(&mean);
+        Tensor* pLogStd = const_cast<Tensor*>(&logStd);
+        int numDims = n;
         
-        result.backward_fn = [a_ptr, m_ptr, ls_ptr, num_dims](Tensor& self) {
-            for (int i = 0; i < num_dims; i++) {
-                float a = a_ptr->data(i, 0);
-                float mu = m_ptr->data(i, 0);
-                float log_s = ls_ptr->data(i, 0);
-                float s = std::exp(log_s);
+        result.m_BackwardFn = [pAction, pMean, pLogStd, numDims](Tensor& self) {
+            for (int i = 0; i < numDims; i++) {
+                float a = pAction->m_Data(i, 0);
+                float mu = pMean->m_Data(i, 0);
+                float logS = pLogStd->m_Data(i, 0);
+                float s = std::exp(logS);
                 float diff = a - mu;
                 
-                // ∂/∂μ log π = (a - μ) / σ²
-                if (m_ptr->requires_grad) {
-                    m_ptr->grad(i, 0) += self.grad(0, 0) * diff / (s * s);
+                if (pMean->m_bRequiresGrad) {
+                    pMean->m_Grad(i, 0) += self.m_Grad(0, 0) * diff / (s * s);
                 }
-                // ∂/∂log_std log π = ((a - μ)/σ)² - 1
-                if (ls_ptr->requires_grad) {
-                    float normalized_diff = diff / s;
-                    ls_ptr->grad(i, 0) += self.grad(0, 0) * (normalized_diff * normalized_diff - 1.0f);
+                if (pLogStd->m_bRequiresGrad) {
+                    float normalizedDiff = diff / s;
+                    pLogStd->m_Grad(i, 0) += self.m_Grad(0, 0) * (normalizedDiff * normalizedDiff - 1.0f);
                 }
             }
         };
@@ -863,10 +819,10 @@ Tensor Tensor::gaussian_log_prob(const Tensor& action, const Tensor& mean, const
 }
 
 // Accessors
-Eigen::MatrixXf Tensor::get_data() const { return data; }
-void Tensor::set_data(const Eigen::MatrixXf& d) { data = d; }
+Eigen::MatrixXf Tensor::GetData() const { return m_Data; }
+void Tensor::SetData(const Eigen::MatrixXf& d) { m_Data = d; }
 
-Eigen::MatrixXf Tensor::get_grad() const { return grad; }
-void Tensor::set_grad(const Eigen::MatrixXf& g) { grad = g; }
+Eigen::MatrixXf Tensor::GetGrad() const { return m_Grad; }
+void Tensor::SetGrad(const Eigen::MatrixXf& g) { m_Grad = g; }
 
-bool Tensor::get_requires_grad() const { return requires_grad; }
+bool Tensor::GetRequiresGrad() const { return m_bRequiresGrad; }

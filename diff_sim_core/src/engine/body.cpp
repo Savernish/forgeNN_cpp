@@ -2,124 +2,124 @@
 #include <iostream>
 #include <cmath>
 
-Body::Body(float x, float y, float mass_val, float width, float height) 
-    : name("Body"), is_static(false), friction(0.5f), restitution(0.0f)  // No bounce by default
+Body::Body(float x, float y, float massVal, float width, float height) 
+    : m_Name("Body"), is_static(false), friction(0.5f), restitution(0.0f)  // No bounce by default
 {
     // Initialize State (requires_grad=false by default for state, but can be turned on)
-    std::vector<float> pos_vec = {x, y};
-    pos = Tensor(pos_vec, true); // Allow gradients to flow through pos
+    std::vector<float> posVec = {x, y};
+    pos = Tensor(posVec, true); // Allow gradients to flow through pos
     
-    std::vector<float> vel_vec = {0.0f, 0.0f};
-    vel = Tensor(vel_vec, true);
+    std::vector<float> velVec = {0.0f, 0.0f};
+    vel = Tensor(velVec, true);
     
-    std::vector<float> rot_vec = {0.0f};
-    rotation = Tensor(rot_vec, true);
+    std::vector<float> rotVec = {0.0f};
+    rotation = Tensor(rotVec, true);
     
-    std::vector<float> ang_vel_vec = {0.0f};
-    ang_vel = Tensor(ang_vel_vec, true);
+    std::vector<float> angVelVec = {0.0f};
+    ang_vel = Tensor(angVelVec, true);
 
     // Properties
-    std::vector<float> mass_vec = {mass_val};
-    mass = Tensor(mass_vec, false); 
+    std::vector<float> massVec = {massVal};
+    mass = Tensor(massVec, false); 
     
     // Box inertia: m * (w^2 + h^2) / 12
-    float I = mass_val * (width*width + height*height) / 12.0f;
-    std::vector<float> I_vec = {I};
-    inertia = Tensor(I_vec, false);
+    float I = massVal * (width*width + height*height) / 12.0f;
+    std::vector<float> inertiaVec = {I};
+    inertia = Tensor(inertiaVec, false);
 
     // Shape
     Shape s;
     s.type = Shape::BOX;
     s.width = width;
     s.height = height;
-    s.offset_x = 0;
-    s.offset_y = 0;
+    s.offsetX = 0;
+    s.offsetY = 0;
     shapes.push_back(s);
 
     // Initialize accumulators
-    reset_forces();
+    ResetForces();
 }
 
 // Factory for static colliders (ground, walls, platforms)
-Body* Body::create_static(float x, float y, float width, float height, float rotation_val) {
+Body* Body::CreateStatic(float x, float y, float width, float height, float rotationVal) {
     // Use mass=1 internally but mark as static  
-    Body* b = new Body(x, y, 1.0f, width, height);
-    b->is_static = true;
-    b->friction = 0.8f;  // Static objects typically have higher friction
-    b->restitution = 0.0f;  // No bounce for ground
+    Body* pBody = new Body(x, y, 1.0f, width, height);
+    pBody->is_static = true;
+    pBody->friction = 0.8f;  // Static objects typically have higher friction
+    pBody->restitution = 0.0f;  // No bounce for ground
     
     // Set rotation if specified
-    if (rotation_val != 0.0f) {
-        std::vector<float> rot_vec = {rotation_val};
-        b->rotation = Tensor(rot_vec, false);
+    if (rotationVal != 0.0f) {
+        std::vector<float> rotVec = {rotationVal};
+        pBody->rotation = Tensor(rotVec, false);
     }
     
-    return b;
+    return pBody;
 }
 
-void Body::step(const Tensor& forces, const Tensor& torque, float dt) {
+void Body::Step(const Tensor& forces, const Tensor& torque, float dt) {
     // 1. Linear Acceleration: a = F / m
     std::vector<float> one = {1.0f};
-    Tensor inv_mass = Tensor(one, false) / mass; 
-    Tensor acc = forces * inv_mass;
+    Tensor invMass = Tensor(one, false) / mass; 
+    Tensor acc = forces * invMass;
 
     // 2. Angular Acceleration: alpha = tau / I
-    Tensor inv_I = Tensor(one, false) / inertia;
-    Tensor alpha = torque * inv_I;
+    Tensor invI = Tensor(one, false) / inertia;
+    Tensor alpha = torque * invI;
 
     // 3. Integration (Semi-Implicit Euler)
-    std::vector<float> dt_vec = {dt};
-    Tensor dt_t(dt_vec, false);
+    std::vector<float> dtVec = {dt};
+    Tensor dtTensor(dtVec, false);
 
     // v_new = v + a * dt
-    vel = vel + acc * dt_t;
+    vel = vel + acc * dtTensor;
     
     // pos_new = pos + v_new * dt
-    pos = pos + vel * dt_t;
+    pos = pos + vel * dtTensor;
 
     // omega_new = omega + alpha * dt
-    ang_vel = ang_vel + alpha * dt_t;
+    ang_vel = ang_vel + alpha * dtTensor;
 
     // theta_new = theta + omega_new * dt
-    rotation = rotation + ang_vel * dt_t;
+    rotation = rotation + ang_vel * dtTensor;
 }
 
-void Body::step(float dt) {
-    step(force_accumulator, torque_accumulator, dt);
-    reset_forces();
+void Body::Step(float dt) {
+    Step(m_ForceAccumulator, m_TorqueAccumulator, dt);
+    ResetForces();
 }
 
-void Body::apply_force(const Tensor& f) {
+void Body::ApplyForce(const Tensor& f) {
     // If accumulator is zero (no grad), and f has grad, result has grad.
-    force_accumulator = force_accumulator + f;
+    m_ForceAccumulator = m_ForceAccumulator + f;
 }
 
-void Body::apply_force_at_point(const Tensor& force, const Tensor& point) {
+void Body::ApplyForceAtPoint(const Tensor& force, const Tensor& point) {
     // 1. Apply Linear Force
-    apply_force(force);
+    ApplyForce(force);
 
     // 2. Calculate Torque = (point - pos) x force
     // r = point - pos
     // Note: 'point' should be world coordinates.
 
     // Access components (select is now const-qualified)
-    Tensor px = pos.select(0); 
-    Tensor py = pos.select(1);
+    Tensor px = pos.Select(0); 
+    Tensor py = pos.Select(1);
     garbage_collector.push_back(px);
     garbage_collector.push_back(py);
 
-    Tensor p_x = point.select(0);
-    Tensor p_y = point.select(1);
-    garbage_collector.push_back(p_x);
-    garbage_collector.push_back(p_y);
+    Tensor pointX = point.Select(0);
+    Tensor pointY = point.Select(1);
+    garbage_collector.push_back(pointX);
+    garbage_collector.push_back(pointY);
 
-    Tensor dx = p_x - px;
-    Tensor dy = p_y - py;
+    Tensor dx = pointX - px;
+    Tensor dy = pointY - py;
     garbage_collector.push_back(dx);
     garbage_collector.push_back(dy);
 
-    Tensor fx = force.select(0);
-    Tensor fy = force.select(1);
+    Tensor fx = force.Select(0);
+    Tensor fy = force.Select(1);
     garbage_collector.push_back(fx);
     garbage_collector.push_back(fy);
 
@@ -132,37 +132,34 @@ void Body::apply_force_at_point(const Tensor& force, const Tensor& point) {
     Tensor torque = t1 - t2;
     garbage_collector.push_back(torque);
 
-    apply_torque(torque);
+    ApplyTorque(torque);
 }
 
-void Body::apply_torque(const Tensor& t) {
-    torque_accumulator = torque_accumulator + t;
+void Body::ApplyTorque(const Tensor& t) {
+    m_TorqueAccumulator = m_TorqueAccumulator + t;
 }
 
-void Body::reset_forces() {
-    std::vector<float> zero_vec = {0.0f, 0.0f};
-    force_accumulator = Tensor(zero_vec, false);
+void Body::ResetForces() {
+    std::vector<float> zeroVec = {0.0f, 0.0f};
+    m_ForceAccumulator = Tensor(zeroVec, false);
     
-    std::vector<float> zero_rot = {0.0f};
-    torque_accumulator = Tensor(zero_rot, false);
+    std::vector<float> zeroRot = {0.0f};
+    m_TorqueAccumulator = Tensor(zeroRot, false);
 }
 
-float Body::get_x() const {
-    return const_cast<Tensor*>(&pos)->get(0,0);
+float Body::GetX() const {
+    return const_cast<Tensor*>(&pos)->Get(0,0);
 }
 
-float Body::get_y() const {
-    return const_cast<Tensor*>(&pos)->get(1,0); 
-    // Wait, pos is (2,1)? x=0, y=1?
-    // Body constructor: pos = Tensor({x, y}, true) -> (2,1).
-    // So yes.
+float Body::GetY() const {
+    return const_cast<Tensor*>(&pos)->Get(1,0); 
 }
 
-float Body::get_rotation() const {
-    return const_cast<Tensor*>(&rotation)->get(0,0);
+float Body::GetRotation() const {
+    return const_cast<Tensor*>(&rotation)->Get(0,0);
 }
 
-std::vector<Tensor> Body::get_corners() {
+std::vector<Tensor> Body::GetCorners() {
     std::vector<Tensor> corners;
     // Clear old graph nodes (assume single step usage)
     garbage_collector.clear();
@@ -178,90 +175,88 @@ std::vector<Tensor> Body::get_corners() {
         {hw, hh}, {-hw, hh}, {-hw, -hh}, {hw, -hh}
     };
 
-    Tensor cos_t = rotation.cos();
-    Tensor sin_t = rotation.sin();
+    Tensor cosT = rotation.Cos();
+    Tensor sinT = rotation.Sin();
     
     // Save to GC to keep alive
-    garbage_collector.push_back(cos_t);
-    garbage_collector.push_back(sin_t);
+    garbage_collector.push_back(cosT);
+    garbage_collector.push_back(sinT);
 
-    Tensor px = pos.select(0);
-    Tensor py = pos.select(1);
+    Tensor px = pos.Select(0);
+    Tensor py = pos.Select(1);
     garbage_collector.push_back(px);
     garbage_collector.push_back(py);
 
     for (const auto& off : offsets) {
-        // rot_x = off.x * cos - off.y * sin
-        Tensor rot_x = cos_t * off.x - sin_t * off.y;
-        garbage_collector.push_back(rot_x);
+        // rotX = off.x * cos - off.y * sin
+        Tensor rotX = cosT * off.x - sinT * off.y;
+        garbage_collector.push_back(rotX);
 
-        // rot_y = off.x * sin + off.y * cos
-        Tensor rot_y = sin_t * off.x + cos_t * off.y;
-        garbage_collector.push_back(rot_y);
+        // rotY = off.x * sin + off.y * cos
+        Tensor rotY = sinT * off.x + cosT * off.y;
+        garbage_collector.push_back(rotY);
 
-        Tensor final_x = px + rot_x;
-        Tensor final_y = py + rot_y;
+        Tensor finalX = px + rotX;
+        Tensor finalY = py + rotY;
         
-        // We push copies to GC, and also return copies.
-        // The returned copies will have 'children' pointing to GC's Tensors.
-        // This is SAFE.
-        garbage_collector.push_back(final_x);
-        garbage_collector.push_back(final_y);
+        garbage_collector.push_back(finalX);
+        garbage_collector.push_back(finalY);
 
-        corners.push_back(final_x);
-        corners.push_back(final_y);
+        corners.push_back(finalX);
+        corners.push_back(finalY);
     }
     return corners;
 }
 
-AABB Body::get_aabb() const {
-    float w = shapes[0].width; // assuming shapes[0] exists
+AABB Body::GetAABB() const {
+    float w = shapes[0].width;
     float h = shapes[0].height;
     // Radius = distance from center to corner
     float radius = std::sqrt(w*w + h*h) / 2.0f;
 
     AABB aabb;
-    float x = get_x();
-    float y = get_y();
+    float x = GetX();
+    float y = GetY();
     
-    aabb.min_x = x - radius;
-    aabb.max_x = x + radius;
-    aabb.min_y = y - radius;
-    aabb.max_y = y + radius;
+    aabb.minX = x - radius;
+    aabb.maxX = x + radius;
+    aabb.minY = y - radius;
+    aabb.maxY = y + radius;
     return aabb;
 }
 
-Tensor& Body::keep(const Tensor& t) {
+Tensor& Body::Keep(const Tensor& t) {
     garbage_collector.push_back(t);
     return garbage_collector.back();
 }
-void Body::apply_motor_forces() {
-    float body_rot = rotation.get(0, 0);
-    float cos_r = std::cos(body_rot);
-    float sin_r = std::sin(body_rot);
+
+void Body::ApplyMotorForces() {
+    float bodyRot = rotation.Get(0, 0);
+    float cosR = std::cos(bodyRot);
+    float sinR = std::sin(bodyRot);
     
-    for (Motor* m : motors) {
-        if (m->thrust <= 0) continue;
+    for (Motor* pMotor : motors) {
+        if (pMotor->thrust <= 0) continue;
         
         // Motor thrust direction in local space (default: up = +y)
-        float local_fx = std::cos(m->angle) * m->thrust;
-        float local_fy = std::sin(m->angle) * m->thrust;
+        float localFx = std::cos(pMotor->angle) * pMotor->thrust;
+        float localFy = std::sin(pMotor->angle) * pMotor->thrust;
         
         // Transform force to world space
-        float world_fx = cos_r * local_fx - sin_r * local_fy;
-        float world_fy = sin_r * local_fx + cos_r * local_fy;
+        float worldFx = cosR * localFx - sinR * localFy;
+        float worldFy = sinR * localFx + cosR * localFy;
         
         // Apply linear force
-        std::vector<float> force_vec = {world_fx, world_fy};
-        Tensor force(force_vec, false);
-        apply_force(force);
+        std::vector<float> forceVec = {worldFx, worldFy};
+        Tensor force(forceVec, false);
+        ApplyForce(force);
         
         // Calculate torque: tau = r x F (cross product in 2D)
-        float rx = cos_r * m->local_x - sin_r * m->local_y;
-        float ry = sin_r * m->local_x + cos_r * m->local_y;
+        float rx = cosR * pMotor->local_x - sinR * pMotor->local_y;
+        float ry = sinR * pMotor->local_x + cosR * pMotor->local_y;
         
-        float torque = rx * world_fy - ry * world_fx;
-        std::vector<float> torque_vec = {torque};
-        apply_torque(Tensor(torque_vec, false));
+        float torque = rx * worldFy - ry * worldFx;
+        std::vector<float> torqueVec = {torque};
+        ApplyTorque(Tensor(torqueVec, false));
     }
 }

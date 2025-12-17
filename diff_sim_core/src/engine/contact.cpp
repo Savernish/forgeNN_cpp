@@ -6,46 +6,46 @@ void ContactManifold::compute_mass() {
     if (!body_a || !body_b) return;
     
     // Get inverse masses and inertias
-    float inv_m_a = body_a->is_static ? 0.0f : 1.0f / body_a->mass.get(0, 0);
-    float inv_m_b = body_b->is_static ? 0.0f : 1.0f / body_b->mass.get(0, 0);
-    float inv_I_a = body_a->is_static ? 0.0f : 1.0f / body_a->inertia.get(0, 0);
-    float inv_I_b = body_b->is_static ? 0.0f : 1.0f / body_b->inertia.get(0, 0);
+    float invMassA = body_a->is_static ? 0.0f : 1.0f / body_a->mass.Get(0, 0);
+    float invMassB = body_b->is_static ? 0.0f : 1.0f / body_b->mass.Get(0, 0);
+    float invInertiaA = body_a->is_static ? 0.0f : 1.0f / body_a->inertia.Get(0, 0);
+    float invInertiaB = body_b->is_static ? 0.0f : 1.0f / body_b->inertia.Get(0, 0);
     
-    float ax = body_a->pos.get(0, 0);
-    float ay = body_a->pos.get(1, 0);
-    float bx = body_b->pos.get(0, 0);
-    float by = body_b->pos.get(1, 0);
+    float ax = body_a->pos.Get(0, 0);
+    float ay = body_a->pos.Get(1, 0);
+    float bx = body_b->pos.Get(0, 0);
+    float by = body_b->pos.Get(1, 0);
     
     for (int i = 0; i < point_count; ++i) {
         ContactPoint& p = points[i];
         
         // Vector from body center to contact point
-        float ra_x = p.position[0] - ax;
-        float ra_y = p.position[1] - ay;
-        float rb_x = p.position[0] - bx;
-        float rb_y = p.position[1] - by;
+        float raX = p.position[0] - ax;
+        float raY = p.position[1] - ay;
+        float rbX = p.position[0] - bx;
+        float rbY = p.position[1] - by;
         
         // Cross products for normal direction
-        float ra_cross_n = ra_x * normal[1] - ra_y * normal[0];
-        float rb_cross_n = rb_x * normal[1] - rb_y * normal[0];
+        float raCrossN = raX * normal[1] - raY * normal[0];
+        float rbCrossN = rbX * normal[1] - rbY * normal[0];
         
         // Effective mass for normal constraint
-        float k_normal = inv_m_a + inv_m_b + 
-                         ra_cross_n * ra_cross_n * inv_I_a +
-                         rb_cross_n * rb_cross_n * inv_I_b;
+        float kNormal = invMassA + invMassB + 
+                        raCrossN * raCrossN * invInertiaA +
+                        rbCrossN * rbCrossN * invInertiaB;
         
-        normal_mass[i] = (k_normal > 0) ? 1.0f / k_normal : 0.0f;
+        normal_mass[i] = (kNormal > 0) ? 1.0f / kNormal : 0.0f;
         
         // Cross products for tangent direction
-        float ra_cross_t = ra_x * tangent[1] - ra_y * tangent[0];
-        float rb_cross_t = rb_x * tangent[1] - rb_y * tangent[0];
+        float raCrossT = raX * tangent[1] - raY * tangent[0];
+        float rbCrossT = rbX * tangent[1] - rbY * tangent[0];
         
         // Effective mass for friction constraint
-        float k_tangent = inv_m_a + inv_m_b + 
-                          ra_cross_t * ra_cross_t * inv_I_a +
-                          rb_cross_t * rb_cross_t * inv_I_b;
+        float kTangent = invMassA + invMassB + 
+                         raCrossT * raCrossT * invInertiaA +
+                         rbCrossT * rbCrossT * invInertiaB;
         
-        tangent_mass[i] = (k_tangent > 0) ? 1.0f / k_tangent : 0.0f;
+        tangent_mass[i] = (kTangent > 0) ? 1.0f / kTangent : 0.0f;
     }
 }
 
@@ -53,11 +53,11 @@ void ContactManifold::compute_mass() {
 // ContactManager Implementation
 // ============================================================================
 
-ContactManifold* ContactManager::get_or_create(Body* a, Body* b) {
-    ContactKey key{a, b};
+ContactManifold* ContactManager::GetOrCreate(Body* pBodyA, Body* pBodyB) {
+    ContactKey key{pBodyA, pBodyB};
     
-    auto it = manifold_cache.find(key);
-    if (it != manifold_cache.end()) {
+    auto it = m_ManifoldCache.find(key);
+    if (it != m_ManifoldCache.end()) {
         // Existing manifold - mark as still active
         it->second.was_touching = it->second.touching;
         return &it->second;
@@ -65,46 +65,46 @@ ContactManifold* ContactManager::get_or_create(Body* a, Body* b) {
     
     // Create new manifold
     ContactManifold manifold;
-    manifold.body_a = a;
-    manifold.body_b = b;
+    manifold.body_a = pBodyA;
+    manifold.body_b = pBodyB;
     
     // Combine material properties
-    manifold.friction = std::sqrt(a->friction * b->friction);
-    manifold.restitution = std::max(a->restitution, b->restitution);
+    manifold.friction = std::sqrt(pBodyA->friction * pBodyB->friction);
+    manifold.restitution = std::max(pBodyA->restitution, pBodyB->restitution);
     
-    auto result = manifold_cache.insert({key, manifold});
+    auto result = m_ManifoldCache.insert({key, manifold});
     return &result.first->second;
 }
 
-ContactManifold* ContactManager::find(Body* a, Body* b) {
-    ContactKey key{a, b};
-    auto it = manifold_cache.find(key);
-    return (it != manifold_cache.end()) ? &it->second : nullptr;
+ContactManifold* ContactManager::Find(Body* pBodyA, Body* pBodyB) {
+    ContactKey key{pBodyA, pBodyB};
+    auto it = m_ManifoldCache.find(key);
+    return (it != m_ManifoldCache.end()) ? &it->second : nullptr;
 }
 
-void ContactManager::begin_frame() {
+void ContactManager::BeginFrame() {
     // Mark all manifolds as not touching (will be updated during collision detection)
-    for (auto& pair : manifold_cache) {
+    for (auto& pair : m_ManifoldCache) {
         pair.second.was_touching = pair.second.touching;
         pair.second.touching = false;
     }
-    active_manifolds.clear();
+    m_ActiveManifolds.clear();
 }
 
-void ContactManager::end_frame() {
+void ContactManager::EndFrame() {
     // Remove manifolds that are no longer touching
-    for (auto it = manifold_cache.begin(); it != manifold_cache.end();) {
+    for (auto it = m_ManifoldCache.begin(); it != m_ManifoldCache.end();) {
         if (!it->second.touching) {
-            it = manifold_cache.erase(it);
+            it = m_ManifoldCache.erase(it);
         } else {
             // Add to active list for solving
-            active_manifolds.push_back(&it->second);
+            m_ActiveManifolds.push_back(&it->second);
             ++it;
         }
     }
 }
 
-void ContactManager::clear() {
-    manifold_cache.clear();
-    active_manifolds.clear();
+void ContactManager::Clear() {
+    m_ManifoldCache.clear();
+    m_ActiveManifolds.clear();
 }

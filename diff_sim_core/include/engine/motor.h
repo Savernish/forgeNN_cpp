@@ -34,16 +34,16 @@ public:
     Motor(float lx, float ly) 
         : local_x(lx), local_y(ly) {}
     
-    Motor(float lx, float ly, float w, float h, float m, float max_t)
-        : local_x(lx), local_y(ly), width(w), height(h), mass(m), max_thrust(max_t) {}
+    Motor(float lx, float ly, float w, float h, float m, float maxT)
+        : local_x(lx), local_y(ly), width(w), height(h), mass(m), max_thrust(maxT) {}
     
     // Set thrust (clamped to 0..max_thrust)
-    void set_thrust(float t) {
+    void SetThrust(float t) {
         thrust = std::max(0.0f, std::min(t, max_thrust));
     }
     
     // Check if this motor overlaps with another (in local body space)
-    bool overlaps(const Motor& other) const {
+    bool Overlaps(const Motor& other) const {
         float left1 = local_x - width/2, right1 = local_x + width/2;
         float bottom1 = local_y - height/2, top1 = local_y + height/2;
         

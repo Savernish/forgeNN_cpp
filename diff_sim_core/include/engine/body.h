@@ -15,14 +15,13 @@ struct Shape {
     float width;  // or radius
     float height;
     // Relative offset from body center
-    float offset_x; 
-    float offset_y;
+    float offsetX; 
+    float offsetY;
 };
 
 struct AABB {
-    float min_x, min_y;
-    float max_x, max_y;
-
+    float minX, minY;
+    float maxX, maxY;
 };
 
 class Body {
@@ -31,19 +30,19 @@ public:
     Tensor pos;      // (2, 1) [x, y]
     Tensor vel;      // (2, 1) [vx, vy]
     Tensor rotation; // (1, 1) [theta]
-    Tensor ang_vel;  // (1, 1) [omega]
+    Tensor ang_vel;  // (1, 1) [omega] - kept as ang_vel for Python API compatibility
 
     // Properties (Potentially differentiable!)
     Tensor mass;     // (1, 1)
     Tensor inertia;  // (1, 1)
     
     // Force Accumulators
-    Tensor force_accumulator; // (2, 1)
-    Tensor torque_accumulator; // (1, 1)
+    Tensor m_ForceAccumulator;  // (2, 1)
+    Tensor m_TorqueAccumulator; // (1, 1)
     
     // Geometry (Static for now)
     std::vector<Shape> shapes;
-    std::string name;
+    std::string m_Name;
     
     // Motors attached to this body
     std::vector<Motor*> motors;
@@ -53,63 +52,63 @@ public:
     float friction;     // Friction coefficient [0, 1]
     float restitution;  // Bounciness [0 = no bounce, 1 = full bounce]
 
-    Body(float x, float y, float mass_val, float width, float height);
+    // Constructor
+    Body(float x, float y, float massVal, float width, float height);
     
     // Static body factory (for ground/walls)
-    static Body* create_static(float x, float y, float width, float height, float rotation = 0.0f);
+    static Body* CreateStatic(float x, float y, float width, float height, float rotation = 0.0f);
     
     // Motor management
-    void add_motor(Motor* m) {
+    void AddMotor(Motor* pMotor) {
         // Check for overlap with existing motors
-        for (Motor* existing : motors) {
-            if (existing->overlaps(*m)) {
+        for (Motor* pExisting : motors) {
+            if (pExisting->Overlaps(*pMotor)) {
                 throw std::runtime_error("Motor overlap detected! Cannot attach motor - it collides with an existing motor.");
             }
         }
-        m->parent = this;
-        motors.push_back(m);
+        pMotor->parent = this;
+        motors.push_back(pMotor);
         
         // Update mass (motor mass adds to body mass)
-        float new_mass = mass.get(0, 0) + m->mass;
-        mass = Tensor(std::vector<float>{new_mass}, true);
+        float newMass = mass.Get(0, 0) + pMotor->mass;
+        mass = Tensor(std::vector<float>{newMass}, true);
         
         // Update inertia (I = I + m*r^2 for point mass at distance r)
-        float r_sq = m->local_x * m->local_x + m->local_y * m->local_y;
-        float new_inertia = inertia.get(0, 0) + m->mass * r_sq;
-        inertia = Tensor(std::vector<float>{new_inertia}, true);
+        float rSq = pMotor->local_x * pMotor->local_x + pMotor->local_y * pMotor->local_y;
+        float newInertia = inertia.Get(0, 0) + pMotor->mass * rSq;
+        inertia = Tensor(std::vector<float>{newInertia}, true);
     }
     
     // Apply all motor forces
-    void apply_motor_forces();
+    void ApplyMotorForces();
     
     // Physics integration step
     // Old method (Manual):
-    void step(const Tensor& forces, const Tensor& torque, float dt);
+    void Step(const Tensor& forces, const Tensor& torque, float dt);
 
     // New method (Automatic): Uses accumulators and clears them
-    void step(float dt);
+    void Step(float dt);
 
-    void apply_force(const Tensor& f);
-    void apply_force_at_point(const Tensor& force, const Tensor& point);
-    void apply_torque(const Tensor& t);
-    void reset_forces();
+    void ApplyForce(const Tensor& f);
+    void ApplyForceAtPoint(const Tensor& force, const Tensor& point);
+    void ApplyTorque(const Tensor& t);
+    void ResetForces();
     
     // Getters for rendering
-    float get_x() const;
-    float get_y() const;
-    float get_rotation() const;
+    float GetX() const;
+    float GetY() const;
+    float GetRotation() const;
 
-    std::vector<Tensor> get_corners();
+    std::vector<Tensor> GetCorners();
 
-    AABB get_aabb() const;
+    AABB GetAABB() const;
 
     // Internal memory management for C++ variables to survive autograd
     // Must be std::list to prevent pointer invalidation on push_back!
     std::list<Tensor> garbage_collector; 
     
     // Helper to keep a tensor alive and return a stable reference
-    Tensor& keep(const Tensor& t);
+    Tensor& Keep(const Tensor& t);
 };
 
 #endif // BODY_H
-

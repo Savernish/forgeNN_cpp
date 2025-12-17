@@ -120,24 +120,24 @@ struct ContactKeyHash {
 class ContactManager {
 public:
     // Get or create a manifold for a body pair
-    ContactManifold* get_or_create(Body* a, Body* b);
+    ContactManifold* GetOrCreate(Body* pBodyA, Body* pBodyB);
     
     // Find existing manifold (returns nullptr if not found)
-    ContactManifold* find(Body* a, Body* b);
+    ContactManifold* Find(Body* pBodyA, Body* pBodyB);
     
     // Mark all manifolds as potentially stale
-    void begin_frame();
+    void BeginFrame();
     
     // Remove manifolds that weren't updated this frame
-    void end_frame();
+    void EndFrame();
     
     // Get all active manifolds for solving
-    std::vector<ContactManifold*>& get_manifolds() { return active_manifolds; }
+    std::vector<ContactManifold*>& GetManifolds() { return m_ActiveManifolds; }
     
     // Clear all contacts
-    void clear();
+    void Clear();
     
 private:
-    std::unordered_map<ContactKey, ContactManifold, ContactKeyHash> manifold_cache;
-    std::vector<ContactManifold*> active_manifolds;
+    std::unordered_map<ContactKey, ContactManifold, ContactKeyHash> m_ManifoldCache;
+    std::vector<ContactManifold*> m_ActiveManifolds;
 };
