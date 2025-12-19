@@ -29,6 +29,16 @@ public:
 
     virtual void DrawCircle(float centerX, float centerY, float radius, 
                             float r=1.0f, float g=1.0f, float b=1.0f) = 0;
+
+    virtual void DrawCircleFilled(float centerX, float centerY, float radius,
+                                  float r=1.0f, float g=1.0f, float b=1.0f) = 0;
+
+    // Triangle: 3 vertices in simulation coordinates
+    virtual void DrawTriangle(float x1, float y1, float x2, float y2, float x3, float y3,
+                              float r=1.0f, float g=1.0f, float b=1.0f) = 0;
+
+    virtual void DrawTriangleFilled(float x1, float y1, float x2, float y2, float x3, float y3,
+                                    float r=1.0f, float g=1.0f, float b=1.0f) = 0;
     
 protected:
     float m_Scale;

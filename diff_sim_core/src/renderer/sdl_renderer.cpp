@@ -204,3 +204,79 @@ void SDLRenderer::DrawCircle(float centreX, float centreY, float radius, float r
         }
     }
 }
+
+void SDLRenderer::DrawCircleFilled(float centreX, float centreY, float radius, float r, float g, float b) {
+    if (!m_pRenderer) return;
+    
+    int cx = ToScreenX(centreX);
+    int cy = ToScreenY(centreY);
+    int rad = static_cast<int>(radius * m_Scale);
+    
+    SDL_SetRenderDrawColor(m_pRenderer, (Uint8)(r*255), (Uint8)(g*255), (Uint8)(b*255), 255);
+    
+    // Bresenham-based filled circle (no sqrt, integer only)
+    int x = rad;
+    int y = 0;
+    int radiusError = 1 - x;
+    
+    while (x >= y) {
+        // Draw horizontal lines for each octant pair
+        SDL_RenderDrawLine(m_pRenderer, cx - x, cy + y, cx + x, cy + y);
+        SDL_RenderDrawLine(m_pRenderer, cx - x, cy - y, cx + x, cy - y);
+        SDL_RenderDrawLine(m_pRenderer, cx - y, cy + x, cx + y, cy + x);
+        SDL_RenderDrawLine(m_pRenderer, cx - y, cy - x, cx + y, cy - x);
+        
+        y++;
+        if (radiusError < 0) {
+            radiusError += 2 * y + 1;
+        } else {
+            x--;
+            radiusError += 2 * (y - x + 1);
+        }
+    }
+}
+
+void SDLRenderer::DrawTriangle(float x1, float y1, float x2, float y2, float x3, float y3,
+                               float r, float g, float b) {
+    if (!m_pRenderer) return;
+    
+    SDL_SetRenderDrawColor(m_pRenderer, (Uint8)(r*255), (Uint8)(g*255), (Uint8)(b*255), 255);
+    
+    int sx1 = ToScreenX(x1), sy1 = ToScreenY(y1);
+    int sx2 = ToScreenX(x2), sy2 = ToScreenY(y2);
+    int sx3 = ToScreenX(x3), sy3 = ToScreenY(y3);
+    
+    SDL_RenderDrawLine(m_pRenderer, sx1, sy1, sx2, sy2);
+    SDL_RenderDrawLine(m_pRenderer, sx2, sy2, sx3, sy3);
+    SDL_RenderDrawLine(m_pRenderer, sx3, sy3, sx1, sy1);
+}
+
+void SDLRenderer::DrawTriangleFilled(float x1, float y1, float x2, float y2, float x3, float y3,
+                                     float r, float g, float b) {
+    if (!m_pRenderer) return;
+    
+    // Convert to screen coordinates
+    float sx1 = static_cast<float>(ToScreenX(x1)), sy1 = static_cast<float>(ToScreenY(y1));
+    float sx2 = static_cast<float>(ToScreenX(x2)), sy2 = static_cast<float>(ToScreenY(y2));
+    float sx3 = static_cast<float>(ToScreenX(x3)), sy3 = static_cast<float>(ToScreenY(y3));
+    
+    // Use SDL_RenderGeometry for GPU-accelerated triangle rendering
+    SDL_Vertex vertices[3];
+    SDL_Color color = {(Uint8)(r*255), (Uint8)(g*255), (Uint8)(b*255), 255};
+    
+    vertices[0].position = {sx1, sy1};
+    vertices[0].color = color;
+    vertices[0].tex_coord = {0, 0};
+    
+    vertices[1].position = {sx2, sy2};
+    vertices[1].color = color;
+    vertices[1].tex_coord = {0, 0};
+    
+    vertices[2].position = {sx3, sy3};
+    vertices[2].color = color;
+    vertices[2].tex_coord = {0, 0};
+    
+    SDL_RenderGeometry(m_pRenderer, nullptr, vertices, 3, nullptr, 0);
+}
+
+

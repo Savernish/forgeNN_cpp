@@ -1038,25 +1038,59 @@ void Engine::RenderBodies() {
     // Skip rendering in headless mode
     if (m_bHeadless || !m_pRenderer) return;
     
+    // Helper lambda to transform local point to world coordinates
+    auto transformPoint = [](float localX, float localY, float bodyX, float bodyY, float rotation, float& worldX, float& worldY) {
+        float cosR = std::cos(rotation);
+        float sinR = std::sin(rotation);
+        worldX = bodyX + localX * cosR - localY * sinR;
+        worldY = bodyY + localX * sinR + localY * cosR;
+    };
+    
     // Render colliders (static geometry) in gray - filled
     for (Body* pCollider : m_Colliders) {
+        float x = pCollider->GetX();
+        float y = pCollider->GetY();
+        float rot = pCollider->GetRotation();
+        
         for (const auto& shape : pCollider->shapes) {
             if (shape.type == Shape::BOX) {
-                m_pRenderer->DrawBoxFilled(pCollider->GetX(), pCollider->GetY(), 
-                                   shape.width, shape.height, 
-                                   pCollider->GetRotation(),
-                                   0.4f, 0.4f, 0.4f);  // Gray
+                m_pRenderer->DrawBoxFilled(x + shape.offsetX, y + shape.offsetY, 
+                                   shape.width, shape.height, rot,
+                                   0.4f, 0.4f, 0.4f);
+            } else if (shape.type == Shape::CIRCLE) {
+                float wx, wy;
+                transformPoint(shape.offsetX, shape.offsetY, x, y, rot, wx, wy);
+                m_pRenderer->DrawCircleFilled(wx, wy, shape.width, 0.4f, 0.4f, 0.4f);
+            } else if (shape.type == Shape::TRIANGLE) {
+                float wx1, wy1, wx2, wy2, wx3, wy3;
+                transformPoint(shape.vertices[0], shape.vertices[1], x, y, rot, wx1, wy1);
+                transformPoint(shape.vertices[2], shape.vertices[3], x, y, rot, wx2, wy2);
+                transformPoint(shape.vertices[4], shape.vertices[5], x, y, rot, wx3, wy3);
+                m_pRenderer->DrawTriangleFilled(wx1, wy1, wx2, wy2, wx3, wy3, 0.4f, 0.4f, 0.4f);
             }
         }
     }
     
-    // Render dynamic bodies in default color - filled
+    // Render dynamic bodies - outline
     for (Body* pBody : m_Bodies) {
+        float x = pBody->GetX();
+        float y = pBody->GetY();
+        float rot = pBody->GetRotation();
+        
         for (const auto& shape : pBody->shapes) {
             if (shape.type == Shape::BOX) {
-                m_pRenderer->DrawBoxFilled(pBody->GetX(), pBody->GetY(), 
-                                   shape.width, shape.height, 
-                                   pBody->GetRotation());
+                m_pRenderer->DrawBox(x + shape.offsetX, y + shape.offsetY, 
+                                   shape.width, shape.height, rot);
+            } else if (shape.type == Shape::CIRCLE) {
+                float wx, wy;
+                transformPoint(shape.offsetX, shape.offsetY, x, y, rot, wx, wy);
+                m_pRenderer->DrawCircle(wx, wy, shape.width);
+            } else if (shape.type == Shape::TRIANGLE) {
+                float wx1, wy1, wx2, wy2, wx3, wy3;
+                transformPoint(shape.vertices[0], shape.vertices[1], x, y, rot, wx1, wy1);
+                transformPoint(shape.vertices[2], shape.vertices[3], x, y, rot, wx2, wy2);
+                transformPoint(shape.vertices[4], shape.vertices[5], x, y, rot, wx3, wy3);
+                m_pRenderer->DrawTriangle(wx1, wy1, wx2, wy2, wx3, wy3);
             }
         }
     }
@@ -1073,12 +1107,34 @@ bool Engine::Step() {
     if (!m_pRenderer->ProcessEvents()) {
         return false;
     }
+    
+    // Fixed timestep accumulator for consistent physics
+    // Physics runs at 60Hz (m_DeltaTime), display at 144fps
+    static auto lastTime = std::chrono::high_resolution_clock::now();
+    static float accumulator = 0.0f;
+    
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float frameTime = std::chrono::duration<float>(currentTime - lastTime).count();
+    lastTime = currentTime;
+    
+    // Clamp frame time to prevent spiral of death
+    if (frameTime > 0.25f) frameTime = 0.25f;
+    
+    accumulator += frameTime;
+    
+    // Run physics at fixed timestep
+    while (accumulator >= m_DeltaTime) {
+        Update();
+        accumulator -= m_DeltaTime;
+    }
+    
+    // Render
     m_pRenderer->Clear();
-    Update();
     RenderBodies();
     m_pRenderer->Present();
     
-    // Frame rate limiting based on dt
-    std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(m_DeltaTime * 1000000)));
+    // Frame rate limiting: 144fps = 6944 microseconds per frame
+    constexpr int TARGET_FRAME_TIME_US = 6944;  // 1000000 / 144
+    std::this_thread::sleep_for(std::chrono::microseconds(TARGET_FRAME_TIME_US));
     return true;
 }

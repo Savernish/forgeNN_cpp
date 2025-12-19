@@ -8,15 +8,58 @@
 #include <string>
 #include <stdexcept>
 
-// Simple shape definition for now
+// Shape definition supporting multiple primitive types
 struct Shape {
-    enum Type { BOX, CIRCLE };
+    enum Type { BOX, CIRCLE, TRIANGLE };
     Type type;
-    float width;  // or radius
+    
+    // BOX: width, height
+    // CIRCLE: width = radius (height unused)
+    // TRIANGLE: uses vertices array
+    float width;
     float height;
-    // Relative offset from body center
+    
+    // Relative offset from body center (for BOX and CIRCLE)
     float offsetX; 
     float offsetY;
+    
+    // Triangle vertices (local coordinates, relative to body center)
+    // Only used when type == TRIANGLE
+    float vertices[6];  // [x1, y1, x2, y2, x3, y3]
+    
+    // Factory methods for clarity
+    static Shape CreateBox(float w, float h, float offX = 0, float offY = 0) {
+        Shape s;
+        s.type = BOX;
+        s.width = w;
+        s.height = h;
+        s.offsetX = offX;
+        s.offsetY = offY;
+        return s;
+    }
+    
+    static Shape CreateCircle(float radius, float offX = 0, float offY = 0) {
+        Shape s;
+        s.type = CIRCLE;
+        s.width = radius;
+        s.height = 0;
+        s.offsetX = offX;
+        s.offsetY = offY;
+        return s;
+    }
+    
+    static Shape CreateTriangle(float x1, float y1, float x2, float y2, float x3, float y3) {
+        Shape s;
+        s.type = TRIANGLE;
+        s.width = 0;
+        s.height = 0;
+        s.offsetX = 0;
+        s.offsetY = 0;
+        s.vertices[0] = x1; s.vertices[1] = y1;
+        s.vertices[2] = x2; s.vertices[3] = y2;
+        s.vertices[4] = x3; s.vertices[5] = y3;
+        return s;
+    }
 };
 
 struct AABB {
@@ -100,6 +143,21 @@ public:
     float GetRotation() const;
 
     std::vector<Tensor> GetCorners();
+
+    // Shape management
+    void AddBoxShape(float w, float h, float offX = 0, float offY = 0) {
+        shapes.push_back(Shape::CreateBox(w, h, offX, offY));
+    }
+    
+    void AddCircleShape(float radius, float offX = 0, float offY = 0) {
+        shapes.push_back(Shape::CreateCircle(radius, offX, offY));
+    }
+    
+    void AddTriangleShape(float x1, float y1, float x2, float y2, float x3, float y3) {
+        shapes.push_back(Shape::CreateTriangle(x1, y1, x2, y2, x3, y3));
+    }
+    
+    void ClearShapes() { shapes.clear(); }
 
     AABB GetAABB() const;
 

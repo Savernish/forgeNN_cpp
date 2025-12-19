@@ -26,6 +26,12 @@ public:
                        float r, float g, float b) override;
     void DrawCircle(float centerX, float centerY, float radius,
                     float r, float g, float b) override;
+    void DrawCircleFilled(float centerX, float centerY, float radius,
+                          float r, float g, float b) override;
+    void DrawTriangle(float x1, float y1, float x2, float y2, float x3, float y3,
+                      float r, float g, float b) override;
+    void DrawTriangleFilled(float x1, float y1, float x2, float y2, float x3, float y3,
+                            float r, float g, float b) override;
     void DrawLine(float x1, float y1, float x2, float y2, 
                   float r, float g, float b) override;
 };

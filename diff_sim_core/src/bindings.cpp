@@ -141,6 +141,14 @@ PYBIND11_MODULE(rigidRL, m) {
         .def_readwrite("friction", &Body::friction)
         .def_readwrite("restitution", &Body::restitution)
         .def("add_motor", &Body::AddMotor, py::arg("motor"), py::keep_alive<1, 2>())
+        .def("add_box_shape", &Body::AddBoxShape, py::arg("w"), py::arg("h"), py::arg("off_x")=0.0f, py::arg("off_y")=0.0f,
+             "Add a box shape to the body.")
+        .def("add_circle_shape", &Body::AddCircleShape, py::arg("radius"), py::arg("off_x")=0.0f, py::arg("off_y")=0.0f,
+             "Add a circle shape to the body.")
+        .def("add_triangle_shape", &Body::AddTriangleShape, 
+             py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), py::arg("x3"), py::arg("y3"),
+             "Add a triangle shape defined by 3 local vertices.")
+        .def("clear_shapes", &Body::ClearShapes, "Remove all shapes from the body.")
         .def_property_readonly("motors", [](Body& b) { return b.motors; }, py::return_value_policy::reference_internal);
 
     py::class_<Motor>(m, "Motor")
@@ -172,7 +180,18 @@ PYBIND11_MODULE(rigidRL, m) {
              py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
              "Draw a line between (x1,y1) and (x2,y2) with color (r,g,b).")
         .def("draw_circle", &Renderer::DrawCircle, py::arg("centerX"), py::arg("centerY"), py::arg("radius"), py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
-             "Draw a circle defined by center (x,y), radius, and color (r,g,b).");
+             "Draw a circle outline defined by center (x,y), radius, and color (r,g,b).")
+        .def("draw_circle_filled", &Renderer::DrawCircleFilled, py::arg("centerX"), py::arg("centerY"), py::arg("radius"), py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a filled circle defined by center (x,y), radius, and color (r,g,b).")
+        .def("draw_triangle", &Renderer::DrawTriangle, py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), py::arg("x3"), py::arg("y3"),
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a triangle outline defined by 3 vertices.")
+        .def("draw_triangle_filled", &Renderer::DrawTriangleFilled, py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), py::arg("x3"), py::arg("y3"),
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a filled triangle defined by 3 vertices.")
+        .def("draw_box_filled", &Renderer::DrawBoxFilled, py::arg("x"), py::arg("y"), py::arg("w"), py::arg("h"), py::arg("rotation"),
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw a filled rectangle defined by center (x,y), width, height, and rotation.");
 
     py::class_<SDLRenderer, Renderer>(m, "SDLRenderer")
         .def(py::init<int, int, float>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f);

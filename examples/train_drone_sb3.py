@@ -116,12 +116,12 @@ def train(total_timesteps=100_000, save_path="drone_ppo"):
         "MlpPolicy",
         train_env,
         verbose=1,
-        learning_rate=1e-3,
+        learning_rate=3e-4,  # Stable learning rate
         n_steps=2048,
         batch_size=64,
         n_epochs=10,
         gamma=0.99,
-        ent_coef=0.01,  # Encourage exploration
+        ent_coef=0.01,  # Standard entropy
         tensorboard_log="./logs/"
     )
     

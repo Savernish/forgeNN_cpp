@@ -24,6 +24,38 @@ except ImportError:
     rigid = None
 
 
+# PARAMS FOR DRONE ENVIRONMENT 
+# TODO: make these params configurable and probably not even be set in the environment itself,
+#       rather in a child environment that the user creates / loads.
+
+# Spawn points for the drone (randomly selected on reset)
+SPAWN_POINTS = [
+    (0.0, 1.5),    # Center only - simplify for now
+]
+
+# Target position (closer for easier learning)
+TARGET_X = 0.0
+TARGET_Y = 4.0  # Closer than 5.0
+
+DRONE_MASS = 1.0
+DRONE_WIDTH = 1.0
+DRONE_HEIGHT = 0.2
+
+MOTOR_LEFT_X = -0.4
+MOTOR_LEFT_Y = 0.0
+MOTOR_LEFT_WIDTH = 0.1
+MOTOR_LEFT_HEIGHT = 0.1
+MOTOR_LEFT_MASS = 0.05
+MOTOR_LEFT_MAX_THRUST = 10.0
+
+MOTOR_RIGHT_X = 0.4
+MOTOR_RIGHT_Y = 0.0
+MOTOR_RIGHT_WIDTH = 0.1
+MOTOR_RIGHT_HEIGHT = 0.1
+MOTOR_RIGHT_MASS = 0.05
+MOTOR_RIGHT_MAX_THRUST = 10.0
+
+
 class DroneEnv(RigidEnv):
     """
     Drone hovering environment.
@@ -56,8 +88,8 @@ class DroneEnv(RigidEnv):
         self,
         render_mode=None,
         max_thrust: float = 10.0,
-        target_x: float = 0.0,
-        target_y: float = 3.0,
+        target_x: float = TARGET_X,
+        target_y: float = TARGET_Y,
         max_episode_steps: int = 500,
         **kwargs
     ):
@@ -80,7 +112,8 @@ class DroneEnv(RigidEnv):
         self.max_thrust = max_thrust
         self.target = np.array([target_x, target_y], dtype=np.float32)
         
-        # Observation space: [x, y, vx, vy, rotation, angular_velocity]
+        # Observation space: [dx_to_target, dy_to_target, vx, vy, rotation, angular_velocity]
+        # Using relative target position so drone knows where to go from any spawn
         self.observation_space = Box(
             low=np.array([-10, -10, -10, -10, -np.pi, -10], dtype=np.float32),
             high=np.array([10, 10, 10, 10, np.pi, 10], dtype=np.float32),
@@ -107,14 +140,16 @@ class DroneEnv(RigidEnv):
         # Ground plane
         self.engine.add_collider(0, -1, 20, 1, 0)
         
-        # Create drone body
-        # x=0, y=2, mass=1kg, width=1m, height=0.2m
-        self.drone = rigid.Body(0, 2, 1.0, 1.0, 0.2)
+        # Randomly select spawn point
+        spawn_idx = np.random.randint(0, len(SPAWN_POINTS))
+        spawn_x, spawn_y = SPAWN_POINTS[spawn_idx]
+        
+        # Create drone body at spawn point
+        self.drone = rigid.Body(spawn_x, spawn_y, DRONE_MASS, DRONE_WIDTH, DRONE_HEIGHT)
         
         # Add motors
-        # Motor(local_x, local_y, width, height, mass, max_thrust)
-        self.motor_left = rigid.Motor(-0.4, 0, 0.1, 0.1, 0.05, self.max_thrust)
-        self.motor_right = rigid.Motor(0.4, 0, 0.1, 0.1, 0.05, self.max_thrust)
+        self.motor_left = rigid.Motor(MOTOR_LEFT_X, MOTOR_LEFT_Y, MOTOR_LEFT_WIDTH, MOTOR_LEFT_HEIGHT, MOTOR_LEFT_MASS, self.max_thrust)
+        self.motor_right = rigid.Motor(MOTOR_RIGHT_X, MOTOR_RIGHT_Y, MOTOR_RIGHT_WIDTH, MOTOR_RIGHT_HEIGHT, MOTOR_RIGHT_MASS, self.max_thrust)
         
         self.drone.add_motor(self.motor_left)
         self.drone.add_motor(self.motor_right)
@@ -122,10 +157,14 @@ class DroneEnv(RigidEnv):
         self.engine.add_body(self.drone)
         
     def _get_obs(self) -> np.ndarray:
-        """Get current observation."""
+        """Get current observation with relative target position."""
+        # Relative position to target (drone needs to know where to go)
+        dx = self.target[0] - self.drone.get_x()
+        dy = self.target[1] - self.drone.get_y()
+        
         return np.array([
-            self.drone.get_x(),
-            self.drone.get_y(),
+            dx,  # Relative X to target
+            dy,  # Relative Y to target  
             self.drone.vel.get(0, 0),
             self.drone.vel.get(1, 0),
             self.drone.get_rotation(),
@@ -142,35 +181,27 @@ class DroneEnv(RigidEnv):
         self.motor_right.thrust = right_thrust
         
     def _compute_reward(self) -> float:
-        """Compute reward based on current state."""
+        """Compute reward - simplified with strong gradients."""
         obs = self._get_obs()
-        pos = obs[:2]
+        rel_pos = obs[:2]  # (dx, dy) to target
         vel = obs[2:4]
         angle = obs[4]
         
-        # Distance to target (main objective)
-        dist = np.linalg.norm(pos - self.target)
+        # Distance to target
+        dist = np.linalg.norm(rel_pos)
         
-        # Survival bonus - crucial for learning to stay aloft
-        reward = 0.5
+        # MAIN REWARD: exponential closeness (stronger gradient near target)
+        # At dist=0: reward=1.0, at dist=5: reward=~0.007
+        reward = np.exp(-dist)
         
-        # Distance reward (exponential for better gradient)
-        reward -= dist * 0.5
+        # Small angle penalty (don't flip)
+        reward -= 0.1 * abs(angle)
         
-        # Height reward - encourage going up
-        reward += pos[1] * 0.2
-        
-        # Velocity penalty (smaller)
-        reward -= 0.05 * np.linalg.norm(vel)
-        
-        # Angle penalty (smaller, encourage level flight)
-        reward -= 0.2 * abs(angle)
-        
-        # Bonus for being close to target
+        # Big bonus for being very close
         if dist < 0.5:
-            reward += 2.0
+            reward += 1.0
         if dist < 0.2:
-            reward += 5.0
+            reward += 2.0
             
         return float(reward)
         
