@@ -176,4 +176,4 @@ Ensure you run from the project root, not inside `diff_sim_core/`.
 
 ## Author
 
-Savern - https://savern.me
+Enbiya Çabuk - https://savern.me
