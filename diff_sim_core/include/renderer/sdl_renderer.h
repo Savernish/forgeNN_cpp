@@ -3,15 +3,16 @@
 
 #include "renderer.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 
 class SDLRenderer : public Renderer {
 private:
     SDL_Window* m_pWindow;
-    SDL_Renderer* m_pRenderer;
+    SDL_GLContext m_GLContext;
 
-    // Coordinate conversion
-    int ToScreenX(float simX);
-    int ToScreenY(float simY);
+    // Coordinate conversion (to OpenGL screen space)
+    float ToScreenX(float simX);
+    float ToScreenY(float simY);
 
 public:
     SDLRenderer(int width=800, int height=600, float scaleFactor=50.0f);

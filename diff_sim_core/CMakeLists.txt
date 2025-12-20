@@ -72,8 +72,10 @@ set(SOURCES
 pybind11_add_module(rigidRL ${SOURCES})
 
 # Link Libraries
+find_package(OpenGL REQUIRED)
+
 if(WIN32)
-    target_link_libraries(rigidRL PRIVATE Eigen3::Eigen SDL2::SDL2)
+    target_link_libraries(rigidRL PRIVATE Eigen3::Eigen SDL2::SDL2 OpenGL::GL)
     
     add_custom_command(TARGET rigidRL POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -82,6 +84,6 @@ if(WIN32)
     )
 else()
     target_include_directories(rigidRL PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(rigidRL PRIVATE Eigen3::Eigen ${SDL2_LIBRARIES})
+    target_link_libraries(rigidRL PRIVATE Eigen3::Eigen ${SDL2_LIBRARIES} OpenGL::GL)
     target_link_options(rigidRL PRIVATE -static-libstdc++ -static-libgcc)
 endif()

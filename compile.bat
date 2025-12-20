@@ -26,6 +26,9 @@ for /f "tokens=*" %%i in ('python --version 2^>^&1') do echo Using %%i
 for /f "tokens=*" %%i in ('pip --version 2^>^&1') do echo Using pip %%i
 echo.
 
+:: Kill any Python processes that might be holding DLL locks
+taskkill /f /im python.exe >nul 2>&1
+
 :: Install in editable mode
 echo Installing rigidRL...
 echo.
