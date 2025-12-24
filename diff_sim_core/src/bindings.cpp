@@ -210,7 +210,12 @@ PYBIND11_MODULE(rigidRL, m) {
              "Draw a filled rectangle defined by center (x,y), width, height, and rotation.");
 
     py::class_<SDLRenderer, Renderer>(m, "SDLRenderer")
-        .def(py::init<int, int, float>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f);
+        .def(py::init<int, int, float>(), py::arg("width")=800, py::arg("height")=600, py::arg("scale")=50.0f)
+        .def("load_font", &SDLRenderer::LoadFont, py::arg("font_path"), py::arg("font_size")=16,
+             "Load a TTF font from file. Returns True on success.")
+        .def("draw_text", &SDLRenderer::DrawText, py::arg("screen_x"), py::arg("screen_y"), py::arg("text"),
+             py::arg("r")=1.0f, py::arg("g")=1.0f, py::arg("b")=1.0f,
+             "Draw text at screen coordinates (pixels from bottom-left).");
 
     py::class_<Engine>(m, "Engine")
         .def(py::init<int, int, float, float, int, bool>(), 
